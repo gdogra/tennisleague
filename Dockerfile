@@ -9,14 +9,12 @@ COPY . .
 RUN npm run build
 
 # 2) Runtime stage using Nginx
-FROM nginx:alpine AS runner
+FROM node:18-alpine AS runner
+WORKDIR /app
+RUN npm i -g serve
+COPY --from=builder /app/dist ./dist
 
-# Copy SPA-friendly nginx config
-COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
-
-# Copy built assets
-COPY --from=builder /app/dist /usr/share/nginx/html
-
-EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
-
+# Render sets PORT; default to 3000 for local runs
+ENV PORT=3000
+EXPOSE 3000
+CMD ["sh", "-c", "serve -s dist -l ${PORT:-3000}"]

@@ -38,9 +38,16 @@ The app uses a lightweight in‑browser backend (`src/lib/backend.ts`) that:
 
 Netlify:
 - `netlify.toml` included (build: `npm run build`, publish: `dist`, Node 18)
+- Optional CI deploy: `.github/workflows/deploy-netlify.yml`
+  - Set repo secrets: `NETLIFY_AUTH_TOKEN` and `NETLIFY_SITE_ID`
+  - Uses GitHub Environment `production` (configure required reviewers if desired)
 
 Render (Static Site):
 - `render.yaml` included (Node 18, build and publish `dist`)
+- Optional CI deploy: `.github/workflows/deploy-render.yml`
+  - Set repo secrets: `RENDER_API_KEY` and `RENDER_SERVICE_ID`
+ - SPA fallback: `static.json` is included to rewrite all routes to `/index.html`.
+  - Uses GitHub Environment `production` (configure required reviewers if desired)
 
 GitHub Actions CI:
 - `.github/workflows/ci.yml` runs type check and build on push/PR
@@ -57,8 +64,8 @@ docker run --rm -p 8080:80 tennisleague:latest
 Open http://localhost:8080
 
 Notes:
-- Multi-stage build uses Node 18 to build, then serves `dist` with Nginx.
-- Nginx is configured for SPA routing (history fallback) via `docker/nginx.conf`.
+- Multi-stage build uses Node 18 to build, then serves `dist` with `serve` binding to `$PORT` (works on Render).
+- For Nginx-based serving, use `docker/nginx.conf` and adjust to listen on `$PORT` with a startup script; not used by default.
 
 ## Scripts
 
