@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,6 +9,9 @@ export default function AdminChallengesPage() {
   const [pending, setPending] = useState<any[]>([]);
   const [contested, setContested] = useState<any[]>([]);
   const [members, setMembers] = useState<any[]>([]);
+  const [seasons, setSeasons] = useState<any[]>([]);
+  const [seasonId, setSeasonId] = useState<number | ''>('' as any);
+  const [division, setDivision] = useState('');
 
   const load = async () => {
     const { data: adminList } = await backend.challenges.listAdmin();
@@ -18,7 +21,7 @@ export default function AdminChallengesPage() {
     setMembers(m || []);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); (async()=>{ try { const ss = await (await fetch((import.meta as any).env?.VITE_API_BASE + '/seasons')).json(); setSeasons(ss || []);} catch{} })(); }, []);
 
   const name = (id: number) => members.find(m => m.id === id)?.name || `Member #${id}`;
 
@@ -59,11 +62,27 @@ export default function AdminChallengesPage() {
       <Header />
       <main className="container mx-auto px-4 py-8 space-y-8">
         <Card>
+          <CardHeader><CardTitle>Filters</CardTitle></CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <select className="border rounded px-3 py-2" value={seasonId} onChange={e=>setSeasonId(e.target.value ? Number(e.target.value) : '' as any)}>
+                <option value="">All Seasons</option>
+                {seasons.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+              <select className="border rounded px-3 py-2" value={division} onChange={e=>setDivision(e.target.value)}>
+                <option value="">All Divisions</option>
+                {(seasons.find(s=>s.id===seasonId)?.divisions || []).map((d:string)=> <option key={d} value={d}>{d}</option>)}
+              </select>
+              <Button variant="outline" onClick={()=>{ setSeasonId('' as any); setDivision(''); }}>Clear</Button>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
           <CardHeader><CardTitle>Result Pending</CardTitle></CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {pending.length === 0 && <div className="text-sm text-gray-600">None</div>}
-              {pending.map(c => <ChallengeRow key={c.id} c={c} />)}
+              {pending.filter(c=> (seasonId? c.season_id===seasonId : true) && (division? c.division===division : true)).length === 0 && <div className="text-sm text-gray-600">None</div>}
+              {pending.filter(c=> (seasonId? c.season_id===seasonId : true) && (division? c.division===division : true)).map(c => <ChallengeRow key={c.id} c={c} />)}
             </div>
           </CardContent>
         </Card>
@@ -72,8 +91,8 @@ export default function AdminChallengesPage() {
           <CardHeader><CardTitle>Contested</CardTitle></CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {contested.length === 0 && <div className="text-sm text-gray-600">None</div>}
-              {contested.map(c => <ChallengeRow key={c.id} c={c} />)}
+              {contested.filter(c=> (seasonId? c.season_id===seasonId : true) && (division? c.division===division : true)).length === 0 && <div className="text-sm text-gray-600">None</div>}
+              {contested.filter(c=> (seasonId? c.season_id===seasonId : true) && (division? c.division===division : true)).map(c => <ChallengeRow key={c.id} c={c} />)}
             </div>
           </CardContent>
         </Card>

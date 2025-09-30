@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import backend from '@/lib/backendClient';
+import { events } from '@/lib/events';
 import { toast } from 'sonner';
 
 export default function ChallengesPage() {
@@ -98,6 +99,26 @@ export default function ChallengesPage() {
     }
     setSuggestions(next);
   }, [member, opponentId, members]);
+
+  // Subscribe to realtime events (API mode only)
+  useEffect(() => {
+    const off = events.on(async (evt) => {
+      if (!member) return;
+      if (evt?.type === 'chat' && evt.challenge_id) {
+        // refresh chat for that challenge if open
+        if (chatOpen[evt.challenge_id]) {
+          const { data } = await backend.chats.list(evt.challenge_id);
+          setChatMessages(prev => ({ ...prev, [evt.challenge_id]: data || [] }));
+        }
+      }
+      if (evt?.type === 'challenge_update') {
+        const { data: ch } = await backend.challenges.listForMember(member.id);
+        setIncoming(ch?.incoming || []);
+        setOutgoing(ch?.outgoing || []);
+      }
+    });
+    return () => { off && off(); };
+  }, [member, chatOpen]);
 
   function toLocalDateTime(date: Date, time: string) {
     const [hh, mm] = time.split(':').map((x)=>parseInt(x));
