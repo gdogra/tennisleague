@@ -23,7 +23,9 @@ const Header = () => {
   { label: 'Contact Us', href: '/contact-us' },
   { label: 'Skill Level', href: '/skill-level' },
   { label: 'View Previous Seasons', href: '/previous-seasons' },
-  { label: 'Privacy Policy', href: '/privacy-policy' }];
+  { label: 'Privacy Policy', href: '/privacy-policy' },
+  { label: 'Players', href: '/players' },
+  { label: 'Challenges', href: '/challenges' }];
 
 
   useEffect(() => {

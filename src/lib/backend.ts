@@ -87,6 +87,7 @@ const KEYS = {
   members: 'app_members',
   categories: 'app_categories',
   products: 'app_products',
+  challenges: 'app_challenges',
   cart: (memberId: number) => `app_cart_${memberId}`,
   orders: (memberId: number) => `app_orders_${memberId}`,
   orderItems: (orderId: number) => `app_order_items_${orderId}`,
@@ -112,7 +113,17 @@ function nextId(key: keyof typeof ids) {
 // Initialize seed data once
 if (!storage.get(KEYS.categories, null)) storage.set(KEYS.categories, seed.categories);
 if (!storage.get(KEYS.products, null)) storage.set(KEYS.products, seed.products);
-if (!storage.get(KEYS.members, null)) storage.set(KEYS.members, [] as any[]);
+if (!storage.get(KEYS.members, null)) {
+  // Seed a few example members to enable challenges/browsing
+  const now = new Date().toISOString();
+  const demoMembers = [
+    { id: nextId('member'), user_id: 201, name: 'Alex Kim', tennis_rating: 4.0, is_active: true, joined_at: now },
+    { id: nextId('member'), user_id: 202, name: 'Jordan Lee', tennis_rating: 3.5, is_active: true, joined_at: now },
+    { id: nextId('member'), user_id: 203, name: 'Riley Chen', tennis_rating: 4.5, is_active: true, joined_at: now }
+  ];
+  storage.set(KEYS.members, demoMembers as any[]);
+}
+if (!storage.get(KEYS.challenges, null)) storage.set(KEYS.challenges, [] as any[]);
 
 // Types
 export interface User { ID: number; Name: string; Email: string; CreateTime?: string; Roles?: string }
@@ -153,6 +164,10 @@ export const backend = {
   },
 
   members: {
+    list(): Result<any[]> {
+      const members = storage.get<any[]>(KEYS.members, []);
+      return Promise.resolve({ data: members, error: null });
+    },
     getByUserId(userId: number): Result<any> {
       const members = storage.get<any[]>(KEYS.members, []);
       const found = members.find(m => m.user_id === userId) || null;
@@ -164,6 +179,37 @@ export const backend = {
       members.push(created);
       storage.set(KEYS.members, members);
       return Promise.resolve({ data: created, error: null });
+    }
+  },
+
+  challenges: {
+    listForMember(memberId: number): Result<{ incoming: any[]; outgoing: any[] }> {
+      const all = storage.get<any[]>(KEYS.challenges, []);
+      const incoming = all.filter(c => c.opponent_member_id === memberId).sort((a,b)=>a.created_at.localeCompare(b.created_at)).reverse();
+      const outgoing = all.filter(c => c.challenger_member_id === memberId).sort((a,b)=>a.created_at.localeCompare(b.created_at)).reverse();
+      return Promise.resolve({ data: { incoming, outgoing }, error: null });
+    },
+    create(payload: { challenger_member_id: number; opponent_member_id: number; proposed_date?: string; location?: string; message?: string; }): Result<any> {
+      const all = storage.get<any[]>(KEYS.challenges, []);
+      const now = new Date().toISOString();
+      const created = {
+        id: Date.now(),
+        status: 'Pending',
+        created_at: now,
+        updated_at: now,
+        ...payload
+      };
+      all.push(created);
+      storage.set(KEYS.challenges, all);
+      return Promise.resolve({ data: created, error: null });
+    },
+    updateStatus(id: number, status: 'Accepted' | 'Declined' | 'Cancelled' | 'Completed'): Result<any> {
+      const all = storage.get<any[]>(KEYS.challenges, []);
+      const idx = all.findIndex(c => c.id === id);
+      if (idx === -1) return Promise.resolve({ data: null, error: 'Not found' });
+      all[idx] = { ...all[idx], status, updated_at: new Date().toISOString() };
+      storage.set(KEYS.challenges, all);
+      return Promise.resolve({ data: all[idx], error: null });
     }
   },
 
