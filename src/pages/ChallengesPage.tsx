@@ -36,6 +36,7 @@ export default function ChallengesPage() {
   const [chatInput, setChatInput] = useState<Record<number, string>>({});
   const [chatMessages, setChatMessages] = useState<Record<number, any[]>>({});
   const [courts, setCourts] = useState<any[]>([]);
+  const [slotForms, setSlotForms] = useState<Record<number, Array<{ start: string; end?: string }>>>({});
 
   useEffect(() => {
     const init = async () => {
@@ -140,6 +141,32 @@ export default function ChallengesPage() {
     const { data } = await backend.chats.list(c.id);
     setChatMessages(prev => ({ ...prev, [c.id]: data || [] }));
     setChatInput(prev => ({ ...prev, [c.id]: '' }));
+  };
+
+  const proposeSlots = async (c: any) => {
+    const list = (slotForms[c.id] || []).filter(s => s.start);
+    if (list.length === 0) { toast.error('Add at least one slot'); return; }
+    const api = (backend as any);
+    const fn = api.challenges?.proposeSlots || api.schedule?.proposeSlots;
+    if (!fn) { toast.error('Not supported'); return; }
+    const { error } = await fn(c.id, list);
+    if (error) { toast.error('Failed to save slots'); return; }
+    const { data: ch } = await backend.challenges.listForMember(member!.id);
+    setIncoming(ch?.incoming || []);
+    setOutgoing(ch?.outgoing || []);
+    toast.success('Slots proposed');
+  };
+
+  const acceptSlot = async (c: any, slotId: number) => {
+    const api = (backend as any);
+    const fn = api.challenges?.acceptSlot || api.schedule?.acceptSlot;
+    if (!fn) { toast.error('Not supported'); return; }
+    const { error } = await fn(c.id, slotId, c.location);
+    if (error) { toast.error('Failed to accept slot'); return; }
+    const { data: ch } = await backend.challenges.listForMember(member!.id);
+    setIncoming(ch?.incoming || []);
+    setOutgoing(ch?.outgoing || []);
+    toast.success('Slot accepted');
   };
 
   const submitChallenge = async () => {
@@ -376,6 +403,43 @@ export default function ChallengesPage() {
                                 toast.success('Proposed time updated');
                               }
                             }}>Propose New Time</Button>
+                          </div>
+                        )}
+                        {c.status === 'Pending' && (
+                          <div className="mt-3 space-y-2">
+                            <div className="text-sm font-medium">Propose multiple slots</div>
+                            {Array.from({ length: 3 }).map((_, i) => (
+                              <div key={i} className="grid grid-cols-2 gap-2">
+                                <Input type="datetime-local" value={(slotForms[c.id]?.[i]?.start) || ''} onChange={(e)=>{
+                                  setSlotForms(prev=>{
+                                    const list = prev[c.id] ? [...prev[c.id]] : [{start:''},{start:''},{start:''}];
+                                    list[i] = { ...list[i], start: e.target.value };
+                                    return { ...prev, [c.id]: list };
+                                  });
+                                }} />
+                                <Input type="datetime-local" value={(slotForms[c.id]?.[i]?.end) || ''} onChange={(e)=>{
+                                  setSlotForms(prev=>{
+                                    const list = prev[c.id] ? [...prev[c.id]] : [{start:''},{start:''},{start:''}];
+                                    list[i] = { ...list[i], end: e.target.value || undefined };
+                                    return { ...prev, [c.id]: list };
+                                  });
+                                }} placeholder="End (optional)" />
+                              </div>
+                            ))}
+                            <Button size="sm" variant="outline" onClick={()=>proposeSlots(c)}>Save Slots</Button>
+                          </div>
+                        )}
+                        {(c.proposed_slots && c.proposed_slots.length > 0) && (
+                          <div className="mt-3">
+                            <div className="text-sm font-medium mb-1">Proposed slots</div>
+                            <div className="space-y-1">
+                              {c.proposed_slots.map((s:any) => (
+                                <div key={s.id} className="flex items-center justify-between text-sm">
+                                  <span>{new Date(s.start).toLocaleString()} {s.end ? `- ${new Date(s.end).toLocaleString()}` : ''}</span>
+                                  <Button size="sm" onClick={()=>acceptSlot(c, s.id)}>Accept</Button>
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         )}
                         {c.status === 'Accepted' && (

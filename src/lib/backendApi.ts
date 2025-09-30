@@ -47,7 +47,10 @@ const backendApi = {
     async reportResult(id: number, payload: any) { const { data, error } = await http<any>(`/challenges/${id}/report`, { method: 'POST', body: JSON.stringify(payload) }); return { data: data || null, error: error || null }; },
     async verifyResult(id: number, approve: boolean, note?: string) { const { data, error } = await http<any>(`/challenges/${id}/verify`, { method: 'POST', body: JSON.stringify({ approve, note }) }); return { data: data || null, error: error || null }; },
     async listAdmin() { const { data, error } = await http<any>(`/challenges/admin`); return { data: data || { pending: [], contested: [] }, error: error || null }; },
-    async adminOverride(id: number, winner_member_id: number) { const { data, error } = await http<any>(`/challenges/${id}/override`, { method: 'POST', body: JSON.stringify({ winner_member_id }) }); return { data: data || null, error: error || null }; }
+    async adminOverride(id: number, winner_member_id: number) { const { data, error } = await http<any>(`/challenges/${id}/override`, { method: 'POST', body: JSON.stringify({ winner_member_id }) }); return { data: data || null, error: error || null }; },
+    // convenience wrappers for schedule
+    async proposeSlots(id: number, slots: Array<{ start: string; end?: string }>) { const { data, error } = await http<any>(`/challenges/${id}/slots`, { method: 'POST', body: JSON.stringify({ slots }) }); return { data: data || null, error: error || null }; },
+    async acceptSlot(id: number, slotId: number, location?: string) { const { data, error } = await http<any>(`/challenges/${id}/accept-slot`, { method: 'POST', body: JSON.stringify({ slotId, location }) }); return { data: data || null, error: error || null }; }
   },
   schedule: {
     async proposeSlots(id: number, slots: Array<{ start: string; end?: string }>) { const { data, error } = await http<any>(`/challenges/${id}/slots`, { method: 'POST', body: JSON.stringify({ slots }) }); return { data: data || null, error: error || null }; },
