@@ -21,3 +21,10 @@ export function broadcast(event) {
     try { c.res.write(data); } catch {}
   }
 }
+
+export function broadcastSelective(predicate, event) {
+  const data = `data: ${JSON.stringify(event)}\n\n`;
+  for (const c of clients) {
+    try { if (predicate(c)) c.res.write(data); } catch {}
+  }
+}

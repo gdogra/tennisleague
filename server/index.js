@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
 import { db, nextId } from './storage.js';
-import { sseHandler, broadcast } from './events.js';
+import { sseHandler, broadcast, broadcastSelective } from './events.js';
 import { buildIcs } from './ics.js';
 import { sendEmail } from './mailer.js';
 import { SlotsSchema, ResultReportSchema, MemberPatchSchema } from './schemas.js';
@@ -89,7 +89,14 @@ app.post('/challenges', (req, res) => {
   const created = { id: nextId(store.data.challenges), status: 'Pending', verification_status: 'None', created_at: now, updated_at: now, ...req.body };
   store.data.challenges.push(created);
   store.save();
-  try { broadcast({ type: 'challenge_update', challenge: created }); } catch {}
+  try {
+    const participants = [created.challenger_member_id, created.opponent_member_id];
+    broadcastSelective((client) => {
+      const token = client.token; if (!token) return false; const store2 = db(); const user = store2.data.sessions[token];
+      if (!user) return false; const m = store2.data.members.find(mm => mm.user_id === (user.id || 100));
+      return m && participants.includes(m.id);
+    }, { type: 'challenge_update', challenge: created });
+  } catch {}
   res.json(created);
 });
 app.patch('/challenges/:id/status', (req, res) => {
@@ -98,7 +105,10 @@ app.patch('/challenges/:id/status', (req, res) => {
   if (idx === -1) return res.status(404).json({ error: 'not found' });
   store.data.challenges[idx] = { ...store.data.challenges[idx], status: req.body.status, updated_at: new Date().toISOString() };
   store.save();
-  try { broadcast({ type: 'challenge_update', challenge: store.data.challenges[idx] }); } catch {}
+  try {
+    const cc = store.data.challenges[idx]; const participants = [cc.challenger_member_id, cc.opponent_member_id];
+    broadcastSelective((client) => { const t=client.token; if(!t) return false; const s=db(); const u=s.data.sessions[t]; if(!u) return false; const m=s.data.members.find(mm=>mm.user_id===(u.id||100)); return m && participants.includes(m.id); }, { type: 'challenge_update', challenge: cc });
+  } catch {}
   // Send acceptance emails with ICS
   try {
     const match = store.data.challenges[idx];
@@ -120,7 +130,7 @@ app.patch('/challenges/:id/schedule', (req, res) => {
   if (idx === -1) return res.status(404).json({ error: 'not found' });
   store.data.challenges[idx] = { ...store.data.challenges[idx], proposed_date: req.body.proposed_date, location: req.body.location, updated_at: new Date().toISOString() };
   store.save();
-  try { broadcast({ type: 'challenge_update', challenge: store.data.challenges[idx] }); } catch {}
+  try { const cc=store.data.challenges[idx]; const participants=[cc.challenger_member_id,cc.opponent_member_id]; broadcastSelective((client)=>{ const t=client.token; if(!t) return false; const s=db(); const u=s.data.sessions[t]; if(!u) return false; const m=s.data.members.find(mm=>mm.user_id===(u.id||100)); return m && participants.includes(m.id); }, { type: 'challenge_update', challenge: cc }); } catch {}
   res.json(store.data.challenges[idx]);
 });
 app.post('/challenges/:id/slots', (req, res) => {
@@ -132,7 +142,7 @@ app.post('/challenges/:id/slots', (req, res) => {
   const slots = parsed.data.map((s) => ({ id: nextId(store.data.chats), start: s.start, end: s.end }));
   store.data.challenges[idx] = { ...store.data.challenges[idx], proposed_slots: slots, updated_at: new Date().toISOString() };
   store.save();
-  try { broadcast({ type: 'challenge_update', challenge: store.data.challenges[idx] }); } catch {}
+  try { const cc=store.data.challenges[idx]; const participants=[cc.challenger_member_id,cc.opponent_member_id]; broadcastSelective((client)=>{ const t=client.token; if(!t) return false; const s=db(); const u=s.data.sessions[t]; if(!u) return false; const m=s.data.members.find(mm=>mm.user_id===(u.id||100)); return m && participants.includes(m.id); }, { type: 'challenge_update', challenge: cc }); } catch {}
   res.json(store.data.challenges[idx]);
 });
 app.post('/challenges/:id/accept-slot', (req, res) => {
@@ -144,7 +154,7 @@ app.post('/challenges/:id/accept-slot', (req, res) => {
   if (!chosen) return res.status(400).json({ error: 'slot_not_found' });
   store.data.challenges[idx] = { ...c, status: 'Accepted', proposed_date: chosen.start, location: req.body.location || c.location, updated_at: new Date().toISOString() };
   store.save();
-  try { broadcast({ type: 'challenge_update', challenge: store.data.challenges[idx] }); } catch {}
+  try { const cc=store.data.challenges[idx]; const participants=[cc.challenger_member_id,cc.opponent_member_id]; broadcastSelective((client)=>{ const t=client.token; if(!t) return false; const s=db(); const u=s.data.sessions[t]; if(!u) return false; const m=s.data.members.find(mm=>mm.user_id===(u.id||100)); return m && participants.includes(m.id); }, { type: 'challenge_update', challenge: cc }); } catch {}
   res.json(store.data.challenges[idx]);
 });
 app.post('/challenges/:id/report', (req, res) => {
@@ -178,7 +188,7 @@ app.post('/challenges/:id/verify', (req, res) => {
   }
   store.data.challenges[idx] = c;
   store.save();
-  try { broadcast({ type: 'challenge_update', challenge: c }); } catch {}
+  try { const participants=[c.challenger_member_id,c.opponent_member_id]; broadcastSelective((client)=>{ const t=client.token; if(!t) return false; const s=db(); const u=s.data.sessions[t]; if(!u) return false; const m=s.data.members.find(mm=>mm.user_id===(u.id||100)); return m && participants.includes(m.id); }, { type: 'challenge_update', challenge: c }); } catch {}
   res.json(c);
 });
 app.get('/challenges/admin', (req, res) => {
@@ -214,7 +224,7 @@ app.post('/chats/:challengeId', (req, res) => {
   const created = { id: nextId(store.data.chats), challenge_id: Number(req.params.challengeId), sender_member_id: req.body.sender_member_id, message: req.body.message, created_at: new Date().toISOString() };
   store.data.chats.push(created);
   store.save();
-  try { broadcast({ type: 'chat', challenge_id: created.challenge_id, message: created }); } catch {}
+  try { const challenge = store.data.challenges.find(c=>c.id===created.challenge_id); const participants= challenge? [challenge.challenger_member_id, challenge.opponent_member_id]: []; broadcastSelective((client)=>{ const t=client.token; if(!t) return false; const s=db(); const u=s.data.sessions[t]; if(!u) return false; const m=s.data.members.find(mm=>mm.user_id===(u.id||100)); return m && participants.includes(m.id); }, { type: 'chat', challenge_id: created.challenge_id, message: created }); } catch {}
   res.json(created);
 });
 
@@ -291,4 +301,30 @@ app.delete('/courts/:id', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`API listening on http://localhost:${PORT}`);
+  // Reminder scheduler: check every 5 minutes
+  setInterval(async () => {
+    try {
+      const store = db();
+      const now = Date.now();
+      for (const c of store.data.challenges) {
+        if (c.status !== 'Accepted' || !c.proposed_date) continue;
+        const start = new Date(c.proposed_date).getTime();
+        const in24h = Math.abs(start - (now + 24*60*60*1000)) < 5*60*1000;
+        const in1h = Math.abs(start - (now + 60*60*1000)) < 5*60*1000;
+        const members = store.data.members;
+        const a = members.find(m => m.id === c.challenger_member_id);
+        const b = members.find(m => m.id === c.opponent_member_id);
+        const send = async (subject) => {
+          const end = new Date(start + 90*60*1000);
+          const ics = buildIcs({ uid: `match-${c.id}@tlnet`, startISO: new Date(start).toISOString(), endISO: end.toISOString(), title: 'Tennis Match', location: c.location, organizer: process.env.MAIL_FROM, attendees: [a?.email, b?.email].filter(Boolean) });
+          const html = `<p>Reminder: Your match is scheduled for ${new Date(start).toLocaleString()} at ${c.location || 'TBD'}.</p>`;
+          if (a?.email) await sendEmail({ to: a.email, subject, html, ics });
+          if (b?.email) await sendEmail({ to: b.email, subject, html, ics });
+        };
+        if (!c.reminder24Sent && in24h) { await send('Match Reminder (24h)'); c.reminder24Sent = true; }
+        if (!c.reminder1Sent && in1h) { await send('Match Reminder (1h)'); c.reminder1Sent = true; }
+      }
+      store.save();
+    } catch (e) { /* ignore */ }
+  }, 5 * 60 * 1000);
 });

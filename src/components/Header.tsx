@@ -24,6 +24,7 @@ const Header = () => {
   { label: 'Skill Level', href: '/skill-level' },
   { label: 'Tennis Clubs', href: '/tennis-clubs' },
   { label: 'Courts', href: '/courts' },
+  { label: 'Courts Map', href: '/courts/map' },
   { label: 'Interest List', href: '/interest-list' },
   { label: 'Contact Us', href: '/contact-us' },
   { label: 'Skill Level', href: '/skill-level' },

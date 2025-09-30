@@ -28,6 +28,7 @@ const AdminSeasonsPage = lazy(() => import("./pages/AdminSeasonsPage"));
 const AdminCourtsPage = lazy(() => import("./pages/AdminCourtsPage"));
 import RequireAdmin from "./components/RequireAdmin";
 const CourtsPage = lazy(() => import("./pages/CourtsPage"));
+const CourtsMapPage = lazy(() => import("./pages/CourtsMapPage"));
 const PlayerProfilePage = lazy(() => import("./pages/PlayerProfilePage"));
 const LeaderboardPage = lazy(() => import("./pages/LeaderboardPage"));
 const SchedulePage = lazy(() => import("./pages/SchedulePage"));
@@ -70,6 +71,7 @@ const App = () =>
             <Route path="/seasons" element={<SeasonsPage />} />
             <Route path="/standings" element={<StandingsPage />} />
             <Route path="/courts" element={<CourtsPage />} />
+            <Route path="/courts/map" element={<CourtsMapPage />} />
             <Route path="/admin/challenges" element={<RequireAdmin><AdminChallengesPage /></RequireAdmin>} />
             <Route path="/admin/seasons" element={<RequireAdmin><AdminSeasonsPage /></RequireAdmin>} />
             <Route path="/admin/courts" element={<RequireAdmin><AdminCourtsPage /></RequireAdmin>} />
