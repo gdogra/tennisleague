@@ -88,6 +88,9 @@ const KEYS = {
   categories: 'app_categories',
   products: 'app_products',
   challenges: 'app_challenges',
+  outbox: 'app_outbox',
+  seasons: 'app_seasons',
+  seasonMembers: (seasonId: number) => `app_season_${seasonId}_members`,
   cart: (memberId: number) => `app_cart_${memberId}`,
   orders: (memberId: number) => `app_orders_${memberId}`,
   orderItems: (orderId: number) => `app_order_items_${orderId}`,
@@ -117,13 +120,23 @@ if (!storage.get(KEYS.members, null)) {
   // Seed a few example members to enable challenges/browsing
   const now = new Date().toISOString();
   const demoMembers = [
-    { id: nextId('member'), user_id: 201, name: 'Alex Kim', tennis_rating: 4.0, is_active: true, joined_at: now },
-    { id: nextId('member'), user_id: 202, name: 'Jordan Lee', tennis_rating: 3.5, is_active: true, joined_at: now },
-    { id: nextId('member'), user_id: 203, name: 'Riley Chen', tennis_rating: 4.5, is_active: true, joined_at: now }
+    { id: nextId('member'), user_id: 201, name: 'Alex Kim', tennis_rating: 4.0, area: 'North County', email: 'alex@example.com', is_active: true, joined_at: now },
+    { id: nextId('member'), user_id: 202, name: 'Jordan Lee', tennis_rating: 3.5, area: 'Downtown', email: 'jordan@example.com', is_active: true, joined_at: now },
+    { id: nextId('member'), user_id: 203, name: 'Riley Chen', tennis_rating: 4.5, area: 'East County', email: 'riley@example.com', is_active: true, joined_at: now }
   ];
   storage.set(KEYS.members, demoMembers as any[]);
 }
 if (!storage.get(KEYS.challenges, null)) storage.set(KEYS.challenges, [] as any[]);
+if (!storage.get(KEYS.seasons, null)) {
+  const now = new Date();
+  const year = now.getFullYear();
+  const demo = [
+    { id: 1, name: `${year} Fall`, start: new Date(year, 9, 1).toISOString(), end: new Date(year, 11, 15).toISOString(), divisions: ['3.5','4.0','4.5','5.0'], is_active: true }
+  ];
+  storage.set(KEYS.seasons, demo);
+  storage.set(KEYS.seasonMembers(1), [] as any[]);
+}
+if (!storage.get(KEYS.outbox, null)) storage.set(KEYS.outbox, [] as any[]);
 
 // Types
 export interface User { ID: number; Name: string; Email: string; CreateTime?: string; Roles?: string }
@@ -175,10 +188,18 @@ export const backend = {
     },
     create(member: any): Result<any> {
       const members = storage.get<any[]>(KEYS.members, []);
-      const created = { ...member, id: nextId('member') };
+      const created = { wins: 0, losses: 0, ...member, id: nextId('member') };
       members.push(created);
       storage.set(KEYS.members, members);
       return Promise.resolve({ data: created, error: null });
+    },
+    update(id: number, patch: any): Result<any> {
+      const members = storage.get<any[]>(KEYS.members, []);
+      const idx = members.findIndex(m => m.id === id);
+      if (idx === -1) return Promise.resolve({ data: null, error: 'Not found' });
+      members[idx] = { ...members[idx], ...patch, updated_at: new Date().toISOString() };
+      storage.set(KEYS.members, members);
+      return Promise.resolve({ data: members[idx], error: null });
     }
   },
 
@@ -189,19 +210,44 @@ export const backend = {
       const outgoing = all.filter(c => c.challenger_member_id === memberId).sort((a,b)=>a.created_at.localeCompare(b.created_at)).reverse();
       return Promise.resolve({ data: { incoming, outgoing }, error: null });
     },
-    create(payload: { challenger_member_id: number; opponent_member_id: number; proposed_date?: string; location?: string; message?: string; }): Result<any> {
+    create(payload: { challenger_member_id: number; opponent_member_id: number; proposed_date?: string; location?: string; message?: string; season_id?: number; division?: string; }): Result<any> {
       const all = storage.get<any[]>(KEYS.challenges, []);
       const now = new Date().toISOString();
       const created = {
         id: Date.now(),
         status: 'Pending',
+        verification_status: 'None',
         created_at: now,
         updated_at: now,
         ...payload
       };
       all.push(created);
       storage.set(KEYS.challenges, all);
+      // email stub notifications
+      try {
+        const members = storage.get<any[]>(KEYS.members, []);
+        const challenger = members.find(m => m.id === payload.challenger_member_id);
+        const opponent = members.find(m => m.id === payload.opponent_member_id);
+        emailStubSend(
+          opponent?.email || `user+${payload.opponent_member_id}@example.com`,
+          'New Match Challenge',
+          `${challenger?.name || 'A player'} challenged you.${payload.proposed_date ? ` When: ${payload.proposed_date}.` : ''}${payload.location ? ` Where: ${payload.location}.` : ''} ${payload.message || ''}`
+        );
+        emailStubSend(
+          challenger?.email || `user+${payload.challenger_member_id}@example.com`,
+          'Challenge Sent',
+          `You challenged ${opponent?.name || 'a player'}. We'll notify you upon response.`
+        );
+      } catch {}
       return Promise.resolve({ data: created, error: null });
+    },
+    acceptSchedule(id: number): Result<any> {
+      const all = storage.get<any[]>(KEYS.challenges, []);
+      const idx = all.findIndex(c => c.id === id);
+      if (idx === -1) return Promise.resolve({ data: null, error: 'Not found' });
+      all[idx] = { ...all[idx], status: 'Accepted', updated_at: new Date().toISOString() };
+      storage.set(KEYS.challenges, all);
+      return Promise.resolve({ data: all[idx], error: null });
     },
     updateStatus(id: number, status: 'Accepted' | 'Declined' | 'Cancelled' | 'Completed'): Result<any> {
       const all = storage.get<any[]>(KEYS.challenges, []);
@@ -209,7 +255,49 @@ export const backend = {
       if (idx === -1) return Promise.resolve({ data: null, error: 'Not found' });
       all[idx] = { ...all[idx], status, updated_at: new Date().toISOString() };
       storage.set(KEYS.challenges, all);
+      try {
+        const c = all[idx];
+        const members = storage.get<any[]>(KEYS.members, []);
+        const challenger = members.find(m => m.id === c.challenger_member_id);
+        const opponent = members.find(m => m.id === c.opponent_member_id);
+        emailStubSend(
+          challenger?.email || `user+${c.challenger_member_id}@example.com`,
+          `Challenge ${status}`,
+          `${opponent?.name || 'Opponent'} ${status.toLowerCase()} your challenge.`
+        );
+      } catch {}
       return Promise.resolve({ data: all[idx], error: null });
+    },
+    reportResult(id: number, payload: { winner_member_id: number; sets: Array<{ a: number; b: number }>; }): Result<any> {
+      const all = storage.get<any[]>(KEYS.challenges, []);
+      const idx = all.findIndex(c => c.id === id);
+      if (idx === -1) return Promise.resolve({ data: null, error: 'Not found' });
+      const updated = { ...all[idx], status: 'ResultPending', verification_status: 'Pending', result_reported_by: payload.winner_member_id, winner_member_id: payload.winner_member_id, sets: payload.sets, updated_at: new Date().toISOString() };
+      all[idx] = updated;
+      storage.set(KEYS.challenges, all);
+      return Promise.resolve({ data: updated, error: null });
+    },
+    verifyResult(id: number, approve: boolean): Result<any> {
+      const all = storage.get<any[]>(KEYS.challenges, []);
+      const idx = all.findIndex(c => c.id === id);
+      if (idx === -1) return Promise.resolve({ data: null, error: 'Not found' });
+      let updated = all[idx];
+      if (approve) {
+        updated = { ...updated, status: 'Completed', verification_status: 'Verified', updated_at: new Date().toISOString() };
+        // Update member stats
+        const members = storage.get<any[]>(KEYS.members, []);
+        const winIdx = members.findIndex(m => m.id === updated.winner_member_id);
+        if (winIdx !== -1) members[winIdx] = { ...members[winIdx], wins: (members[winIdx].wins || 0) + 1 };
+        const loserId = updated.challenger_member_id === updated.winner_member_id ? updated.opponent_member_id : updated.challenger_member_id;
+        const loseIdx = members.findIndex(m => m.id === loserId);
+        if (loseIdx !== -1) members[loseIdx] = { ...members[loseIdx], losses: (members[loseIdx].losses || 0) + 1 };
+        storage.set(KEYS.members, members);
+      } else {
+        updated = { ...updated, verification_status: 'Contested', updated_at: new Date().toISOString() };
+      }
+      all[idx] = updated;
+      storage.set(KEYS.challenges, all);
+      return Promise.resolve({ data: updated, error: null });
     }
   },
 
@@ -300,5 +388,15 @@ export const backend = {
     }
   }
 };
+
+// Email notification stub
+function emailStubSend(to: string, subject: string, body: string) {
+  const out = storage.get<any[]>(KEYS.outbox, []);
+  const item = { id: Date.now(), to, subject, body, created_at: new Date().toISOString() };
+  out.push(item);
+  storage.set(KEYS.outbox, out);
+  // eslint-disable-next-line no-console
+  console.log('[EmailStub]', item);
+}
 
 export default backend;

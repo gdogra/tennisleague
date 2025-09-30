@@ -19,12 +19,16 @@ export default function ChallengesPage() {
   const [outgoing, setOutgoing] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchParams] = useSearchParams();
+  const [reportForms, setReportForms] = useState<Record<number, { sets: { a: string; b: string }[]; winner: 'me' | 'opponent' | '' }>>({});
 
   // Form state
   const [opponentId, setOpponentId] = useState<number | ''>('' as any);
   const [proposedDate, setProposedDate] = useState('');
   const [location, setLocation] = useState('');
   const [message, setMessage] = useState('');
+  const [seasonId, setSeasonId] = useState<number | ''>('' as any);
+  const [division, setDivision] = useState<string>('');
+  const [seasons, setSeasons] = useState<any[]>([]);
 
   useEffect(() => {
     const init = async () => {
@@ -45,6 +49,9 @@ export default function ChallengesPage() {
 
         const preselect = searchParams.get('opponentId');
         if (preselect) setOpponentId(parseInt(preselect));
+        const ss = (localStorage.getItem('app_seasons') && JSON.parse(localStorage.getItem('app_seasons') as string)) || [];
+        setSeasons(ss);
+        if (ss.length > 0) { setSeasonId(ss[0].id); setDivision(ss[0].divisions?.[0] || 'Open'); }
       } finally {
         setLoading(false);
       }
@@ -62,7 +69,9 @@ export default function ChallengesPage() {
       opponent_member_id: Number(opponentId),
       proposed_date: proposedDate,
       location,
-      message
+      message,
+      season_id: seasonId ? Number(seasonId) : undefined,
+      division: division || undefined
     });
     if (error) { toast.error('Failed to create challenge'); return; }
     toast.success('Challenge sent');
@@ -72,10 +81,28 @@ export default function ChallengesPage() {
     setOutgoing(ch?.outgoing || []);
   };
 
-  const act = async (id: number, status: 'Accepted'|'Declined'|'Cancelled'|'Completed') => {
-    const { error } = await backend.challenges.updateStatus(id, status);
-    if (error) { toast.error('Update failed'); return; }
-    const { data: ch } = await backend.challenges.listForMember(member!.id);
+    const act = async (id: number, status: 'Accepted'|'Declined'|'Cancelled'|'Completed') => {
+      const { error } = await backend.challenges.updateStatus(id, status);
+      if (error) { toast.error('Update failed'); return; }
+      const { data: ch } = await backend.challenges.listForMember(member!.id);
+      setIncoming(ch?.incoming || []);
+      setOutgoing(ch?.outgoing || []);
+    };
+
+  const submitResult = async (c: any, who: 'incoming'|'outgoing') => {
+    if (!member) return;
+    const form = reportForms[c.id] || { sets: [{ a: '', b: '' }, { a: '', b: '' }, { a: '', b: '' }], winner: '' };
+    const sets = form.sets
+      .filter(s => s.a !== '' && s.b !== '')
+      .map(s => ({ a: parseInt(s.a||'0'), b: parseInt(s.b||'0') }))
+      .slice(0, 3);
+    if (sets.length === 0) { toast.error('Enter at least one set'); return; }
+    const winnerId = form.winner === 'me' ? member.id : (form.winner === 'opponent' ? (who === 'incoming' ? c.challenger_member_id : c.opponent_member_id) : null);
+    if (!winnerId) { toast.error('Select winner'); return; }
+    const { error } = await backend.challenges.reportResult(c.id, { winner_member_id: winnerId, sets });
+    if (error) { toast.error('Failed to report result'); return; }
+    toast.success('Result recorded');
+    const { data: ch } = await backend.challenges.listForMember(member.id);
     setIncoming(ch?.incoming || []);
     setOutgoing(ch?.outgoing || []);
   };
@@ -135,6 +162,22 @@ export default function ChallengesPage() {
                 <label className="block text-sm font-medium mb-1">Message</label>
                 <Textarea placeholder="Add an optional note" value={message} onChange={(e)=>setMessage(e.target.value)} />
               </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Season</label>
+                  <select className="w-full border rounded px-3 py-2" value={seasonId} onChange={e=>setSeasonId(e.target.value ? Number(e.target.value) : '' as any)}>
+                    <option value="">No Season</option>
+                    {seasons.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Division</label>
+                  <select className="w-full border rounded px-3 py-2" value={division} onChange={e=>setDivision(e.target.value)}>
+                    <option value="">Open</option>
+                    {(seasons.find(s=>s.id===seasonId)?.divisions || []).map((d: string) => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                </div>
+              </div>
               <div className="text-right">
                 <Button onClick={submitChallenge}>Send Challenge</Button>
               </div>
@@ -165,6 +208,23 @@ export default function ChallengesPage() {
                         {c.status === 'Pending' && <div className="mt-2">
                           <Button variant="outline" size="sm" onClick={() => act(c.id, 'Cancelled')}>Cancel</Button>
                         </div>}
+                        {c.status === 'Accepted' && (
+                          <div className="mt-3 space-y-2">
+                            <div className="text-sm font-medium">Report Result</div>
+                            {Array.from({ length: 3 }).map((_, i) => (
+                              <div key={i} className="flex items-center space-x-2">
+                                <input className="border rounded px-2 py-1 w-16" placeholder="6" value={(reportForms[c.id]?.sets?.[i]?.a) || ''} onChange={e=>setReportForms(prev=>({ ...prev, [c.id]: { sets: [...(prev[c.id]?.sets || [{a:'',b:''},{a:'',b:''},{a:'',b:''}])].map((s, idx)=> idx===i?{...s,a:e.target.value}:s), winner: prev[c.id]?.winner || '' } }))} />
+                                <span>:</span>
+                                <input className="border rounded px-2 py-1 w-16" placeholder="4" value={(reportForms[c.id]?.sets?.[i]?.b) || ''} onChange={e=>setReportForms(prev=>({ ...prev, [c.id]: { sets: [...(prev[c.id]?.sets || [{a:'',b:''},{a:'',b:''},{a:'',b:''}])].map((s, idx)=> idx===i?{...s,b:e.target.value}:s), winner: prev[c.id]?.winner || '' } }))} />
+                              </div>
+                            ))}
+                            <div className="text-sm">Winner:
+                              <label className="ml-2 mr-2"><input type="radio" name={`win-${c.id}`} onChange={()=>setReportForms(prev=>({ ...prev, [c.id]: { ...(prev[c.id]||{sets:[{a:'',b:''},{a:'',b:''},{a:'',b:''}]}), winner:'me' } }))} /> Me</label>
+                              <label><input type="radio" name={`win-${c.id}`} onChange={()=>setReportForms(prev=>({ ...prev, [c.id]: { ...(prev[c.id]||{sets:[{a:'',b:''},{a:'',b:''},{a:'',b:''}]}), winner:'opponent' } }))} /> Opponent</label>
+                            </div>
+                            <Button size="sm" onClick={() => submitResult(c, 'outgoing')}>Submit Result</Button>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -193,7 +253,21 @@ export default function ChallengesPage() {
                             </>
                           )}
                           {c.status === 'Accepted' && (
-                            <Button size="sm" variant="outline" onClick={() => act(c.id, 'Completed')}>Mark Completed</Button>
+                            <div className="space-y-2">
+                              <div className="text-sm font-medium">Report Result</div>
+                              {Array.from({ length: 3 }).map((_, i) => (
+                                <div key={i} className="flex items-center space-x-2">
+                                  <input className="border rounded px-2 py-1 w-16" placeholder="6" value={(reportForms[c.id]?.sets?.[i]?.a) || ''} onChange={e=>setReportForms(prev=>({ ...prev, [c.id]: { sets: [...(prev[c.id]?.sets || [{a:'',b:''},{a:'',b:''},{a:'',b:''}])].map((s, idx)=> idx===i?{...s,a:e.target.value}:s), winner: prev[c.id]?.winner || '' } }))} />
+                                  <span>:</span>
+                                  <input className="border rounded px-2 py-1 w-16" placeholder="4" value={(reportForms[c.id]?.sets?.[i]?.b) || ''} onChange={e=>setReportForms(prev=>({ ...prev, [c.id]: { sets: [...(prev[c.id]?.sets || [{a:'',b:''},{a:'',b:''},{a:'',b:''}])].map((s, idx)=> idx===i?{...s,b:e.target.value}:s), winner: prev[c.id]?.winner || '' } }))} />
+                                </div>
+                              ))}
+                              <div className="text-sm">Winner:
+                                <label className="ml-2 mr-2"><input type="radio" name={`win-${c.id}`} onChange={()=>setReportForms(prev=>({ ...prev, [c.id]: { ...(prev[c.id]||{sets:[{a:'',b:''},{a:'',b:''},{a:'',b:''}]}), winner:'me' } }))} /> Me</label>
+                                <label><input type="radio" name={`win-${c.id}`} onChange={()=>setReportForms(prev=>({ ...prev, [c.id]: { ...(prev[c.id]||{sets:[{a:'',b:''},{a:'',b:''},{a:'',b:''}]}), winner:'opponent' } }))} /> Opponent</label>
+                              </div>
+                              <Button size="sm" onClick={() => submitResult(c, 'incoming')}>Submit Result</Button>
+                            </div>
                           )}
                         </div>
                       </div>
@@ -213,4 +287,3 @@ export default function ChallengesPage() {
     </div>
   );
 }
-

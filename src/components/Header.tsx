@@ -17,6 +17,7 @@ const Header = () => {
 
   const mainNavItems = [
   { label: 'Home', href: '/' },
+  { label: 'Seasons', href: '/seasons' },
   { label: 'FAQs', href: '/faqs' },
   { label: 'League Rules', href: '/league-rules' },
   { label: 'Skill Level', href: '/skill-level' },
@@ -142,9 +143,15 @@ const Header = () => {
                       <User className="w-4 h-4 mr-1" />
                       Welcome, {user.Name}
                     </span>
+                    <a href="/profile" className="hover:text-green-400 transition-colors">
+                      Profile
+                    </a>
                     <a href="/order-history" className="hover:text-green-400 transition-colors flex items-center">
                       <Package className="w-4 h-4 mr-1" />
                       Orders
+                    </a>
+                    <a href="/outbox" className="hover:text-green-400 transition-colors">
+                      Notifications
                     </a>
                     <button
                   onClick={handleLogout}

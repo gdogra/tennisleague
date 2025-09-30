@@ -17,6 +17,11 @@ import MemberLoginPage from "./pages/MemberLoginPage";
 import OnAuthSuccessPage from "./pages/OnAuthSuccessPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import OrderHistoryPage from "./pages/OrderHistoryPage";
+import ProfilePage from "./pages/ProfilePage";
+import OutboxPage from "./pages/OutboxPage";
+import RequireAuth from "./components/RequireAuth";
+import SeasonsPage from "./pages/SeasonsPage";
+import StandingsPage from "./pages/StandingsPage";
 import PlayersPage from "./pages/PlayersPage";
 import ChallengesPage from "./pages/ChallengesPage";
 
@@ -48,10 +53,14 @@ const App = () =>
             <Route path="/members/memberlogin" element={<MemberLoginPage />} />
             <Route path="/product/:id" element={<ProductPage />} />
             <Route path="/players" element={<PlayersPage />} />
-            <Route path="/challenges" element={<ChallengesPage />} />
+            <Route path="/challenges" element={<RequireAuth><ChallengesPage /></RequireAuth>} />
+            <Route path="/seasons" element={<SeasonsPage />} />
+            <Route path="/standings" element={<StandingsPage />} />
             <Route path="/onauthsuccess" element={<OnAuthSuccessPage />} />
             <Route path="/resetpassword" element={<ResetPasswordPage />} />
-            <Route path="/order-history" element={<OrderHistoryPage />} />
+            <Route path="/order-history" element={<RequireAuth><OrderHistoryPage /></RequireAuth>} />
+            <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
+            <Route path="/outbox" element={<RequireAuth><OutboxPage /></RequireAuth>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

@@ -12,6 +12,10 @@ export default function PlayersPage() {
   const [member, setMember] = useState<any>(null);
   const [members, setMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [minRating, setMinRating] = useState<string>('');
+  const [maxRating, setMaxRating] = useState<string>('');
+  const [area, setArea] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -32,7 +36,22 @@ export default function PlayersPage() {
     init();
   }, []);
 
-  const others = useMemo(() => (members || []).filter(x => member ? x.id !== member.id : true), [members, member]);
+  const areas = useMemo(() => {
+    const set = new Set<string>();
+    (members || []).forEach((m: any) => { if (m.area) set.add(m.area); });
+    return Array.from(set).sort();
+  }, [members]);
+
+  const others = useMemo(() => {
+    let list = (members || []).filter(x => (member ? x.id !== member.id : true));
+    if (search) list = list.filter(x => (x.name || '').toLowerCase().includes(search.toLowerCase()));
+    const min = minRating ? parseFloat(minRating) : undefined;
+    const max = maxRating ? parseFloat(maxRating) : undefined;
+    if (min !== undefined) list = list.filter(x => (x.tennis_rating ?? 0) >= min);
+    if (max !== undefined) list = list.filter(x => (x.tennis_rating ?? 0) <= max);
+    if (area) list = list.filter(x => (x.area || '') === area);
+    return list;
+  }, [members, member, search, minRating, maxRating, area]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -44,13 +63,41 @@ export default function PlayersPage() {
               <CardTitle>Players</CardTitle>
             </CardHeader>
             <CardContent>
+              {/* Filters */}
+              <div className="mb-4 grid grid-cols-1 md:grid-cols-4 gap-3">
+                <input
+                  value={search}
+                  onChange={(e)=>setSearch(e.target.value)}
+                  placeholder="Search by name"
+                  className="border rounded px-3 py-2" />
+                <input
+                  value={minRating}
+                  onChange={(e)=>setMinRating(e.target.value)}
+                  placeholder="Min rating"
+                  className="border rounded px-3 py-2"
+                  inputMode="decimal" />
+                <input
+                  value={maxRating}
+                  onChange={(e)=>setMaxRating(e.target.value)}
+                  placeholder="Max rating"
+                  className="border rounded px-3 py-2"
+                  inputMode="decimal" />
+                <select className="border rounded px-3 py-2" value={area} onChange={(e)=>setArea(e.target.value)}>
+                  <option value="">All areas</option>
+                  {areas.map(a => <option key={a} value={a}>{a}</option>)}
+                </select>
+              </div>
+
               {loading ? <div>Loading...</div> : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {others.map(p => (
                     <div key={p.id} className="border rounded p-4 flex items-center justify-between">
                       <div>
                         <div className="font-medium">{p.name || `Member #${p.id}`}</div>
-                        {p.tennis_rating && <div className="text-sm text-gray-600">Rating: {p.tennis_rating}</div>}
+                        <div className="text-sm text-gray-600">
+                          {p.tennis_rating ? `Rating: ${p.tennis_rating}` : 'Rating: N/A'}
+                          {p.area ? ` • Area: ${p.area}` : ''}
+                        </div>
                       </div>
                       <Button onClick={() => navigate(`/challenges?opponentId=${p.id}`)} disabled={!user}>Challenge</Button>
                     </div>
@@ -69,4 +116,3 @@ export default function PlayersPage() {
     </div>
   );
 }
-
