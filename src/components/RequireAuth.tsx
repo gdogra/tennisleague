@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import backend from '@/lib/backend';
+import backend from '@/lib/backendClient';
 
 export default function RequireAuth({ children }: { children: ReactNode }) {
   const [checking, setChecking] = useState(true);
@@ -21,4 +21,3 @@ export default function RequireAuth({ children }: { children: ReactNode }) {
   if (checking) return null;
   return <>{children}</>;
 }
-

@@ -7,7 +7,7 @@ import MemberLogin from '@/components/MemberLogin';
 import ContactSidebar from '@/components/ContactSidebar';
 import Footer from '@/components/Footer';
 import ProductCard from '@/components/ProductCard';
-import backend from '@/lib/backend';
+import backend from '@/lib/backendClient';
 
 const HomePage = () => {
   const [loading, setLoading] = useState(true);

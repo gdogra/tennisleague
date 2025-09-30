@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
-import backend from '@/lib/backend';
+import backend from '@/lib/backendClient';
 import { CreditCard, Truck, MapPin } from 'lucide-react';
 
 interface CheckoutModalProps {

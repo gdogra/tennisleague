@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import backend from '@/lib/backend';
+import backend from '@/lib/backendClient';
 import { toast } from 'sonner';
 
 export default function ChallengesPage() {
@@ -21,6 +21,7 @@ export default function ChallengesPage() {
   const [searchParams] = useSearchParams();
   const [reportForms, setReportForms] = useState<Record<number, { sets: { a: string; b: string }[]; winner: 'me' | 'opponent' | '' }>>({});
   const [contestNotes, setContestNotes] = useState<Record<number, string>>({});
+  const [slots, setSlots] = useState<Array<{ start: string; end?: string }>>([{ start: '' }, { start: '' }, { start: '' }]);
 
   // Form state
   const [opponentId, setOpponentId] = useState<number | ''>('' as any);
@@ -289,6 +290,7 @@ export default function ChallengesPage() {
                   )}
                 </div>
               </div>
+              {/* Multi-slot proposals (coming soon to cards) */}
               <div>
                 <label className="block text-sm font-medium mb-1">Message</label>
                 <Textarea placeholder="Add an optional note" value={message} onChange={(e)=>setMessage(e.target.value)} />

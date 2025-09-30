@@ -5,7 +5,7 @@ import Header from '@/components/Header';
 import ContactSidebar from '@/components/ContactSidebar';
 import Footer from '@/components/Footer';
 import { useToast } from '@/hooks/use-toast';
-import backend from '@/lib/backend';
+import backend from '@/lib/backendClient';
 import { useNavigate } from 'react-router-dom';
 
 const MemberLoginPage = () => {

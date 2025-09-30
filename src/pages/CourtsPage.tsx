@@ -3,7 +3,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ContactSidebar from '@/components/ContactSidebar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import backend from '@/lib/backend';
+import backend from '@/lib/backendClient';
 
 export default function CourtsPage() {
   const [courts, setCourts] = useState<any[]>([]);
@@ -48,6 +48,9 @@ export default function CourtsPage() {
                       <div className="font-medium">{c.name}</div>
                       <div className="text-sm text-gray-600">{c.area} • {c.surface} • {c.lights? 'Lights' : 'No lights'}</div>
                     </div>
+                    <div>
+                      <a className="text-blue-600 underline text-sm" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.name + ' ' + c.area)}`} target="_blank" rel="noreferrer">View on Map</a>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -60,4 +63,3 @@ export default function CourtsPage() {
     </div>
   );
 }
-

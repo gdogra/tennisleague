@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import backend from '@/lib/backend';
+import backend from '@/lib/backendClient';
 
 export default function LeaderboardPage() {
   const [members, setMembers] = useState<any[]>([]);
@@ -60,4 +60,3 @@ export default function LeaderboardPage() {
     </div>
   );
 }
-

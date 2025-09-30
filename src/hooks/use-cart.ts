@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import backend from '@/lib/backend';
+import backend from '@/lib/backendClient';
 
 interface CartItem {
   id: number;

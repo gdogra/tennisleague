@@ -3,7 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Menu, User, ShoppingCart, LogOut, Package } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import backend from '@/lib/backend';
+import { maybeNotify } from '@/lib/notify';
+import backend from '@/lib/backendClient';
 
 const Header = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -87,6 +88,7 @@ const Header = () => {
             title: 'New Challenge',
             description: `You have ${pending} pending challenge${pending === 1 ? '' : 's'}.`
           });
+          maybeNotify('New Challenge', `You have ${pending} pending challenge${pending === 1 ? '' : 's'}.`);
         }
         prevChallengeCount.current = pending;
         setChallengeCount(pending);

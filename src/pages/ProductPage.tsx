@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ShoppingCart, Heart, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
-import backend from '@/lib/backend';
+import backend from '@/lib/backendClient';
 
 interface DatabaseProduct {
   id: number;

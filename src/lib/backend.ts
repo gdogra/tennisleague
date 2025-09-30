@@ -224,6 +224,7 @@ export const backend = {
         id: Date.now(),
         status: 'Pending',
         verification_status: 'None',
+        proposed_slots: [],
         created_at: now,
         updated_at: now,
         ...payload
@@ -261,6 +262,26 @@ export const backend = {
       const idx = all.findIndex(c => c.id === id);
       if (idx === -1) return Promise.resolve({ data: null, error: 'Not found' });
       all[idx] = { ...all[idx], proposed_date, location, updated_at: new Date().toISOString() };
+      storage.set(KEYS.challenges, all);
+      return Promise.resolve({ data: all[idx], error: null });
+    },
+    proposeSlots(id: number, slots: Array<{ id?: number; start: string; end?: string }>): Result<any> {
+      const all = storage.get<any[]>(KEYS.challenges, []);
+      const idx = all.findIndex(c => c.id === id);
+      if (idx === -1) return Promise.resolve({ data: null, error: 'Not found' });
+      const withIds = slots.map(s => ({ id: s.id || Date.now() + Math.floor(Math.random()*1000), start: s.start, end: s.end }));
+      all[idx] = { ...all[idx], proposed_slots: withIds, updated_at: new Date().toISOString() };
+      storage.set(KEYS.challenges, all);
+      return Promise.resolve({ data: all[idx], error: null });
+    },
+    acceptSlot(id: number, slotId: number, location?: string): Result<any> {
+      const all = storage.get<any[]>(KEYS.challenges, []);
+      const idx = all.findIndex(c => c.id === id);
+      if (idx === -1) return Promise.resolve({ data: null, error: 'Not found' });
+      const c = all[idx];
+      const chosen = (c.proposed_slots || []).find((s: any) => s.id === slotId);
+      if (!chosen) return Promise.resolve({ data: null, error: 'Slot not found' });
+      all[idx] = { ...c, status: 'Accepted', proposed_date: chosen.start, location: location || c.location, updated_at: new Date().toISOString() };
       storage.set(KEYS.challenges, all);
       return Promise.resolve({ data: all[idx], error: null });
     },

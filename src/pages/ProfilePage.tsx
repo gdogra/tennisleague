@@ -4,7 +4,8 @@ import Footer from '@/components/Footer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import backend from '@/lib/backend';
+import backend from '@/lib/backendClient';
+import { isOptedIn, requestOptIn, revokeOptIn } from '@/lib/notify';
 import { toast } from 'sonner';
 
 export default function ProfilePage() {
@@ -12,6 +13,7 @@ export default function ProfilePage() {
   const [member, setMember] = useState<any>(null);
   const [form, setForm] = useState<{ name: string; area: string; tennis_rating: string; avatar_url?: string; availability: Array<{ day: number; enabled: boolean; start: string; end: string }> }>({ name: '', area: '', tennis_rating: '', avatar_url: '', availability: [] });
   const [loading, setLoading] = useState(true);
+  const [notifyOptIn, setNotifyOptIn] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -25,6 +27,7 @@ export default function ProfilePage() {
       setLoading(false);
     };
     load();
+    setNotifyOptIn(isOptedIn());
   }, []);
 
   const save = async () => {
@@ -141,6 +144,22 @@ export default function ProfilePage() {
             </div>
             <div className="text-right">
               <Button onClick={save}>Save</Button>
+            </div>
+            <div className="pt-2">
+              <label className="text-sm flex items-center space-x-2">
+                <input type="checkbox" checked={notifyOptIn} onChange={async (e)=>{
+                  const on = e.target.checked;
+                  if (on) {
+                    const ok = await requestOptIn();
+                    setNotifyOptIn(ok);
+                    if (!ok) toast.error('Notifications permission denied');
+                  } else {
+                    revokeOptIn();
+                    setNotifyOptIn(false);
+                  }
+                }} />
+                <span>Enable desktop notifications for challenges</span>
+              </label>
             </div>
           </CardContent>
         </Card>

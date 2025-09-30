@@ -6,7 +6,7 @@ import ContactSidebar from '@/components/ContactSidebar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
-import backend from '@/lib/backend';
+import backend from '@/lib/backendClient';
 import { Star } from 'lucide-react';
 
 export default function PlayersPage() {

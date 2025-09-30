@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { ShoppingCart } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import backend from '@/lib/backend';
+import backend from '@/lib/backendClient';
 
 interface DatabaseProduct {
   id: number;

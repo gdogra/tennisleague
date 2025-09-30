@@ -17,7 +17,7 @@ import {
   ShoppingBag } from
 'lucide-react';
 import { toast } from 'sonner';
-import backend from '@/lib/backend';
+import backend from '@/lib/backendClient';
 
 interface Order {
   id: number;

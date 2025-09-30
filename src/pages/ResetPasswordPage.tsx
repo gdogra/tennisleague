@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { useToast } from '@/hooks/use-toast';
-import backend from '@/lib/backend';
+import backend from '@/lib/backendClient';
 
 const ResetPasswordPage = () => {
   const [password, setPassword] = useState('');

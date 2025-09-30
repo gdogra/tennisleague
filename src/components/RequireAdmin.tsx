@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import backend from '@/lib/backend';
+import backend from '@/lib/backendClient';
 
 export default function RequireAdmin({ children }: { children: ReactNode }) {
   const [ok, setOk] = useState<boolean | null>(null);
@@ -20,4 +20,3 @@ export default function RequireAdmin({ children }: { children: ReactNode }) {
   if (!ok) return null;
   return <>{children}</>;
 }
-

@@ -3,7 +3,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import backend from '@/lib/backend';
+import backend from '@/lib/backendClient';
 
 export default function AdminChallengesPage() {
   const [pending, setPending] = useState<any[]>([]);
@@ -82,4 +82,3 @@ export default function AdminChallengesPage() {
     </div>
   );
 }
-

@@ -2,34 +2,35 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import HomePage from "./pages/HomePage";
-import CartPage from "./pages/CartPage";
-import NotFound from "./pages/NotFound";
+import { lazy, Suspense } from "react";
+const HomePage = lazy(() => import("./pages/HomePage"));
+const CartPage = lazy(() => import("./pages/CartPage"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 import { ErrorBoundary } from "react-error-boundary";
 import ErrorFallback from "./components/error-fallback";
-import ChampionsPage from "./pages/ChampionsPage";
-import RegistrationPage from "./pages/RegistrationPage";
-import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
-import SkillLevelPage from "./pages/SkillLevelPage";
-import ProductPage from "./pages/ProductPage";
-import TennisClubsPage from "./pages/TennisClubsPage";
-import MemberLoginPage from "./pages/MemberLoginPage";
-import OnAuthSuccessPage from "./pages/OnAuthSuccessPage";
-import ResetPasswordPage from "./pages/ResetPasswordPage";
-import OrderHistoryPage from "./pages/OrderHistoryPage";
-import ProfilePage from "./pages/ProfilePage";
-import OutboxPage from "./pages/OutboxPage";
+const ChampionsPage = lazy(() => import("./pages/ChampionsPage"));
+const RegistrationPage = lazy(() => import("./pages/RegistrationPage"));
+const PrivacyPolicyPage = lazy(() => import("./pages/PrivacyPolicyPage"));
+const SkillLevelPage = lazy(() => import("./pages/SkillLevelPage"));
+const ProductPage = lazy(() => import("./pages/ProductPage"));
+const TennisClubsPage = lazy(() => import("./pages/TennisClubsPage"));
+const MemberLoginPage = lazy(() => import("./pages/MemberLoginPage"));
+const OnAuthSuccessPage = lazy(() => import("./pages/OnAuthSuccessPage"));
+const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage"));
+const OrderHistoryPage = lazy(() => import("./pages/OrderHistoryPage"));
+const ProfilePage = lazy(() => import("./pages/ProfilePage"));
+const OutboxPage = lazy(() => import("./pages/OutboxPage"));
 import RequireAuth from "./components/RequireAuth";
-import SeasonsPage from "./pages/SeasonsPage";
-import StandingsPage from "./pages/StandingsPage";
-import AdminChallengesPage from "./pages/AdminChallengesPage";
+const SeasonsPage = lazy(() => import("./pages/SeasonsPage"));
+const StandingsPage = lazy(() => import("./pages/StandingsPage"));
+const AdminChallengesPage = lazy(() => import("./pages/AdminChallengesPage"));
 import RequireAdmin from "./components/RequireAdmin";
-import CourtsPage from "./pages/CourtsPage";
-import PlayerProfilePage from "./pages/PlayerProfilePage";
-import LeaderboardPage from "./pages/LeaderboardPage";
-import SchedulePage from "./pages/SchedulePage";
-import PlayersPage from "./pages/PlayersPage";
-import ChallengesPage from "./pages/ChallengesPage";
+const CourtsPage = lazy(() => import("./pages/CourtsPage"));
+const PlayerProfilePage = lazy(() => import("./pages/PlayerProfilePage"));
+const LeaderboardPage = lazy(() => import("./pages/LeaderboardPage"));
+const SchedulePage = lazy(() => import("./pages/SchedulePage"));
+const PlayersPage = lazy(() => import("./pages/PlayersPage"));
+const ChallengesPage = lazy(() => import("./pages/ChallengesPage"));
 
 const queryClient = new QueryClient();
 
@@ -47,6 +48,7 @@ const App = () =>
       <TooltipProvider>
         <Toaster />
         <BrowserRouter>
+          <Suspense fallback={<div style={{ padding: 16 }}>Loading…</div>}>
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/cart" element={<CartPage />} />
@@ -75,6 +77,7 @@ const App = () =>
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </Suspense>
         </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>
