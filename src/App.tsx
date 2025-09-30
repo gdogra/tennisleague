@@ -14,6 +14,8 @@ const PrivacyPolicyPage = lazy(() => import("./pages/PrivacyPolicyPage"));
 const SkillLevelPage = lazy(() => import("./pages/SkillLevelPage"));
 const ProductPage = lazy(() => import("./pages/ProductPage"));
 const TennisClubsPage = lazy(() => import("./pages/TennisClubsPage"));
+const ContactUsPage = lazy(() => import("./pages/ContactUsPage"));
+const InterestListPage = lazy(() => import("./pages/InterestListPage"));
 const MemberLoginPage = lazy(() => import("./pages/MemberLoginPage"));
 const OnAuthSuccessPage = lazy(() => import("./pages/OnAuthSuccessPage"));
 const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage"));
@@ -61,6 +63,8 @@ const App = () =>
             <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
             <Route path="/skill-level" element={<SkillLevelPage />} />
             <Route path="/tennis-clubs" element={<TennisClubsPage />} />
+            <Route path="/contact-us" element={<ContactUsPage />} />
+            <Route path="/interest-list" element={<InterestListPage />} />
             <Route path="/members/memberlogin" element={<MemberLoginPage />} />
             <Route path="/product/:id" element={<ProductPage />} />
             <Route path="/players" element={<PlayersPage />} />

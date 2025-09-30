@@ -116,7 +116,9 @@ function nextId(key: keyof typeof ids) {
 // Initialize seed data once
 if (!storage.get(KEYS.categories, null)) storage.set(KEYS.categories, seed.categories);
 if (!storage.get(KEYS.products, null)) storage.set(KEYS.products, seed.products);
-if (!storage.get(KEYS.members, null)) {
+{
+  const existingMembers = storage.get<any[] | null>(KEYS.members, null as any);
+  if (!existingMembers || (Array.isArray(existingMembers) && existingMembers.length === 0)) {
   // Seed a few example members to enable challenges/browsing
   const now = new Date().toISOString();
   const demoMembers = [
@@ -125,6 +127,7 @@ if (!storage.get(KEYS.members, null)) {
     { id: nextId('member'), user_id: 203, name: 'Riley Chen', tennis_rating: 4.5, area: 'East County', email: 'riley@example.com', is_active: true, joined_at: now }
   ];
   storage.set(KEYS.members, demoMembers as any[]);
+  }
 }
 if (!storage.get(KEYS.challenges, null)) storage.set(KEYS.challenges, [] as any[]);
 if (!storage.get(KEYS.seasons, null)) {
