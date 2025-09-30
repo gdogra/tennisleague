@@ -5,7 +5,9 @@ import Footer from '@/components/Footer';
 import ContactSidebar from '@/components/ContactSidebar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Link } from 'react-router-dom';
 import backend from '@/lib/backend';
+import { Star } from 'lucide-react';
 
 export default function PlayersPage() {
   const [user, setUser] = useState<any>(null);
@@ -17,6 +19,8 @@ export default function PlayersPage() {
   const [maxRating, setMaxRating] = useState<string>('');
   const [area, setArea] = useState('');
   const navigate = useNavigate();
+  const [favorites, setFavorites] = useState<number[]>([]);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
   useEffect(() => {
     const init = async () => {
@@ -34,6 +38,10 @@ export default function PlayersPage() {
       }
     };
     init();
+    try {
+      const fav = JSON.parse(localStorage.getItem('app_favorites') || '[]');
+      setFavorites(Array.isArray(fav) ? fav : []);
+    } catch {}
   }, []);
 
   const areas = useMemo(() => {
@@ -50,8 +58,17 @@ export default function PlayersPage() {
     if (min !== undefined) list = list.filter(x => (x.tennis_rating ?? 0) >= min);
     if (max !== undefined) list = list.filter(x => (x.tennis_rating ?? 0) <= max);
     if (area) list = list.filter(x => (x.area || '') === area);
+    if (showFavoritesOnly) list = list.filter(x => favorites.includes(x.id));
     return list;
-  }, [members, member, search, minRating, maxRating, area]);
+  }, [members, member, search, minRating, maxRating, area, favorites, showFavoritesOnly]);
+
+  const toggleFavorite = (id: number) => {
+    setFavorites(prev => {
+      const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id];
+      localStorage.setItem('app_favorites', JSON.stringify(next));
+      return next;
+    });
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -87,19 +104,32 @@ export default function PlayersPage() {
                   {areas.map(a => <option key={a} value={a}>{a}</option>)}
                 </select>
               </div>
+              <div className="mb-4">
+                <label className="text-sm"><input type="checkbox" className="mr-2" checked={showFavoritesOnly} onChange={e=>setShowFavoritesOnly(e.target.checked)} />Show favorites only</label>
+              </div>
 
               {loading ? <div>Loading...</div> : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {others.map(p => (
                     <div key={p.id} className="border rounded p-4 flex items-center justify-between">
-                      <div>
-                        <div className="font-medium">{p.name || `Member #${p.id}`}</div>
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden">
+                          {p.avatar_url ? <img src={p.avatar_url} alt={p.name} className="w-full h-full object-cover" /> : null}
+                        </div>
+                        <div>
+                          <div className="font-medium"><Link to={`/player/${p.id}`} className="text-blue-600 underline">{p.name || `Member #${p.id}`}</Link></div>
                         <div className="text-sm text-gray-600">
                           {p.tennis_rating ? `Rating: ${p.tennis_rating}` : 'Rating: N/A'}
                           {p.area ? ` • Area: ${p.area}` : ''}
                         </div>
+                        </div>
                       </div>
-                      <Button onClick={() => navigate(`/challenges?opponentId=${p.id}`)} disabled={!user}>Challenge</Button>
+                      <div className="flex items-center space-x-2">
+                        <Button variant="outline" onClick={() => toggleFavorite(p.id)} title="Favorite">
+                          <Star className={`h-4 w-4 ${favorites.includes(p.id) ? 'fill-yellow-400 text-yellow-400' : ''}`} />
+                        </Button>
+                        <Button onClick={() => navigate(`/challenges?opponentId=${p.id}`)} disabled={!user}>Challenge</Button>
+                      </div>
                     </div>
                   ))}
                 </div>

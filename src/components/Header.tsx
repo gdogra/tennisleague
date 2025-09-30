@@ -22,12 +22,14 @@ const Header = () => {
   { label: 'League Rules', href: '/league-rules' },
   { label: 'Skill Level', href: '/skill-level' },
   { label: 'Tennis Clubs', href: '/tennis-clubs' },
+  { label: 'Courts', href: '/courts' },
   { label: 'Interest List', href: '/interest-list' },
   { label: 'Contact Us', href: '/contact-us' },
   { label: 'Skill Level', href: '/skill-level' },
   { label: 'View Previous Seasons', href: '/previous-seasons' },
   { label: 'Privacy Policy', href: '/privacy-policy' },
   { label: 'Players', href: '/players' },
+  { label: 'Leaderboard', href: '/leaderboard' },
   { label: 'Challenges', href: '/challenges' }];
 
 

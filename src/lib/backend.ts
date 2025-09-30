@@ -147,10 +147,16 @@ export const backend = {
       const user = storage.get<User | null>(KEYS.user, null);
       return Promise.resolve({ data: user, error: null });
     },
+    isAdmin(): Result<boolean> {
+      const user = storage.get<User | null>(KEYS.user, null);
+      const ok = !!user && (((user.Roles || '').toLowerCase().includes('admin')) || (user.Email || '').toLowerCase().endsWith('@tennisleague.com'));
+      return Promise.resolve({ data: ok, error: null });
+    },
     login({ email, password }: { email: string; password: string }): Result<User> {
       if (!email || !password) return Promise.resolve({ data: null, error: 'Missing credentials' });
       const name = email.split('@')[0];
-      const user: User = { ID: 100, Name: name, Email: email, CreateTime: new Date().toISOString(), Roles: 'Member' };
+      const roles = email.toLowerCase().endsWith('@tennisleague.com') ? 'Admin' : 'Member';
+      const user: User = { ID: 100, Name: name, Email: email, CreateTime: new Date().toISOString(), Roles: roles };
       storage.set(KEYS.user, user);
       return Promise.resolve({ data: user, error: null });
     },
@@ -161,7 +167,8 @@ export const backend = {
     register({ email, password }: { email: string; password: string }): Result<User> {
       if (!email || !password) return Promise.resolve({ data: null, error: 'Missing registration fields' });
       const name = email.split('@')[0];
-      const user: User = { ID: 100, Name: name, Email: email, CreateTime: new Date().toISOString(), Roles: 'Member' };
+      const roles = email.toLowerCase().endsWith('@tennisleague.com') ? 'Admin' : 'Member';
+      const user: User = { ID: 100, Name: name, Email: email, CreateTime: new Date().toISOString(), Roles: roles };
       storage.set(KEYS.user, user);
       // Auto-create a member record if one doesn't exist
       const members = storage.get<any[]>(KEYS.members, []);
@@ -188,7 +195,7 @@ export const backend = {
     },
     create(member: any): Result<any> {
       const members = storage.get<any[]>(KEYS.members, []);
-      const created = { wins: 0, losses: 0, ...member, id: nextId('member') };
+      const created = { wins: 0, losses: 0, availability: defaultAvailability(), ...member, id: nextId('member') };
       members.push(created);
       storage.set(KEYS.members, members);
       return Promise.resolve({ data: created, error: null });
@@ -249,6 +256,14 @@ export const backend = {
       storage.set(KEYS.challenges, all);
       return Promise.resolve({ data: all[idx], error: null });
     },
+    updateSchedule(id: number, proposed_date?: string, location?: string): Result<any> {
+      const all = storage.get<any[]>(KEYS.challenges, []);
+      const idx = all.findIndex(c => c.id === id);
+      if (idx === -1) return Promise.resolve({ data: null, error: 'Not found' });
+      all[idx] = { ...all[idx], proposed_date, location, updated_at: new Date().toISOString() };
+      storage.set(KEYS.challenges, all);
+      return Promise.resolve({ data: all[idx], error: null });
+    },
     updateStatus(id: number, status: 'Accepted' | 'Declined' | 'Cancelled' | 'Completed'): Result<any> {
       const all = storage.get<any[]>(KEYS.challenges, []);
       const idx = all.findIndex(c => c.id === id);
@@ -284,13 +299,22 @@ export const backend = {
       let updated = all[idx];
       if (approve) {
         updated = { ...updated, status: 'Completed', verification_status: 'Verified', updated_at: new Date().toISOString() };
-        // Update member stats
+        // Update member stats and ELO
         const members = storage.get<any[]>(KEYS.members, []);
         const winIdx = members.findIndex(m => m.id === updated.winner_member_id);
-        if (winIdx !== -1) members[winIdx] = { ...members[winIdx], wins: (members[winIdx].wins || 0) + 1 };
         const loserId = updated.challenger_member_id === updated.winner_member_id ? updated.opponent_member_id : updated.challenger_member_id;
         const loseIdx = members.findIndex(m => m.id === loserId);
+        if (winIdx !== -1) members[winIdx] = { ...members[winIdx], wins: (members[winIdx].wins || 0) + 1 };
         if (loseIdx !== -1) members[loseIdx] = { ...members[loseIdx], losses: (members[loseIdx].losses || 0) + 1 };
+        if (winIdx !== -1 && loseIdx !== -1) {
+          const K = 32;
+          const Ra = members[winIdx].rating_elo || 1500;
+          const Rb = members[loseIdx].rating_elo || 1500;
+          const Ea = 1 / (1 + Math.pow(10, (Rb - Ra) / 400));
+          const Eb = 1 - Ea;
+          members[winIdx].rating_elo = Math.round(Ra + K * (1 - Ea));
+          members[loseIdx].rating_elo = Math.round(Rb + K * (0 - Eb));
+        }
         storage.set(KEYS.members, members);
       } else {
         updated = { ...updated, verification_status: 'Contested', contest_note: note || '', updated_at: new Date().toISOString() };
@@ -312,13 +336,22 @@ export const backend = {
       let updated = { ...all[idx], winner_member_id, status: 'Completed', verification_status: 'Verified', updated_at: new Date().toISOString() };
       all[idx] = updated;
       storage.set(KEYS.challenges, all);
-      // Update stats
+      // Update stats + ELO
       const members = storage.get<any[]>(KEYS.members, []);
       const winIdx = members.findIndex(m => m.id === winner_member_id);
       if (winIdx !== -1) members[winIdx] = { ...members[winIdx], wins: (members[winIdx].wins || 0) + 1 };
       const loserId = updated.challenger_member_id === winner_member_id ? updated.opponent_member_id : updated.challenger_member_id;
       const loseIdx = members.findIndex(m => m.id === loserId);
       if (loseIdx !== -1) members[loseIdx] = { ...members[loseIdx], losses: (members[loseIdx].losses || 0) + 1 };
+      if (winIdx !== -1 && loseIdx !== -1) {
+        const K = 32;
+        const Ra = members[winIdx].rating_elo || 1500;
+        const Rb = members[loseIdx].rating_elo || 1500;
+        const Ea = 1 / (1 + Math.pow(10, (Rb - Ra) / 400));
+        const Eb = 1 - Ea;
+        members[winIdx].rating_elo = Math.round(Ra + K * (1 - Ea));
+        members[loseIdx].rating_elo = Math.round(Rb + K * (0 - Eb));
+      }
       storage.set(KEYS.members, members);
       return Promise.resolve({ data: updated, error: null });
     }
@@ -409,6 +442,27 @@ export const backend = {
       const items = storage.get<any[]>(KEYS.orderItems(orderId), []);
       return Promise.resolve({ data: items, error: null });
     }
+  },
+
+  chats: {
+    list(challengeId: number): Result<any[]> {
+      const items = storage.get<any[]>(KEYS.chats, []);
+      return Promise.resolve({ data: items.filter(m => m.challenge_id === challengeId).sort((a,b)=>a.created_at.localeCompare(b.created_at)), error: null });
+    },
+    add(challengeId: number, sender_member_id: number, message: string): Result<any> {
+      const items = storage.get<any[]>(KEYS.chats, []);
+      const created = { id: Date.now(), challenge_id: challengeId, sender_member_id, message, created_at: new Date().toISOString() };
+      items.push(created);
+      storage.set(KEYS.chats, items);
+      return Promise.resolve({ data: created, error: null });
+    }
+  },
+
+  courts: {
+    list(): Result<any[]> {
+      const items = storage.get<any[]>(KEYS.courts, []);
+      return Promise.resolve({ data: items, error: null });
+    }
   }
 };
 
@@ -423,3 +477,8 @@ function emailStubSend(to: string, subject: string, body: string) {
 }
 
 export default backend;
+
+function defaultAvailability() {
+  // 0=Sun ... 6=Sat; default evenings 17:00-20:00 enabled false
+  return Array.from({ length: 7 }).map((_, i) => ({ day: i, enabled: false, start: '17:00', end: '20:00' }));
+}

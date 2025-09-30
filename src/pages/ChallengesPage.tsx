@@ -30,6 +30,11 @@ export default function ChallengesPage() {
   const [seasonId, setSeasonId] = useState<number | ''>('' as any);
   const [division, setDivision] = useState<string>('');
   const [seasons, setSeasons] = useState<any[]>([]);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [chatOpen, setChatOpen] = useState<Record<number, boolean>>({});
+  const [chatInput, setChatInput] = useState<Record<number, string>>({});
+  const [chatMessages, setChatMessages] = useState<Record<number, any[]>>({});
+  const [courts, setCourts] = useState<any[]>([]);
 
   useEffect(() => {
     const init = async () => {
@@ -53,6 +58,8 @@ export default function ChallengesPage() {
         const ss = (localStorage.getItem('app_seasons') && JSON.parse(localStorage.getItem('app_seasons') as string)) || [];
         setSeasons(ss);
         if (ss.length > 0) { setSeasonId(ss[0].id); setDivision(ss[0].divisions?.[0] || 'Open'); }
+        const { data: courtsData } = await backend.courts?.list?.() || { data: [] };
+        setCourts(courtsData || []);
       } finally {
         setLoading(false);
       }
@@ -61,6 +68,78 @@ export default function ChallengesPage() {
   }, [searchParams]);
 
   const opponents = useMemo(() => (members || []).filter(x => member ? x.id !== member.id : true), [members, member]);
+
+  useEffect(() => {
+    // compute suggested overlap times for next 14 days based on availability
+    if (!member || !opponentId) { setSuggestions([]); return; }
+    const me = member;
+    const opp = (members || []).find((m:any) => m.id === opponentId);
+    if (!opp) { setSuggestions([]); return; }
+    const availA = (me.availability || []);
+    const availB = (opp.availability || []);
+    const next: string[] = [];
+    const now = new Date();
+    for (let d=0; d<21 && next.length<5; d++) {
+      const dt = new Date(now.getFullYear(), now.getMonth(), now.getDate()+d);
+      const day = dt.getDay();
+      const ra = availA[day];
+      const rb = availB[day];
+      if (ra?.enabled && rb?.enabled) {
+        const start = maxTime(ra.start, rb.start);
+        const end = minTime(ra.end, rb.end);
+        if (minutesBetween(start, end) >= 90) {
+          // choose start time
+          const localISO = toLocalDateTime(dt, start);
+          next.push(localISO);
+        }
+      }
+    }
+    setSuggestions(next);
+  }, [member, opponentId, members]);
+
+  function toLocalDateTime(date: Date, time: string) {
+    const [hh, mm] = time.split(':').map((x)=>parseInt(x));
+    const dt = new Date(date.getFullYear(), date.getMonth(), date.getDate(), hh, mm, 0);
+    // format as yyyy-MM-ddTHH:mm for datetime-local
+    const pad = (n:number)=>String(n).padStart(2,'0');
+    return `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+  }
+  function minutesBetween(a:string,b:string){
+    const [ah, am] = a.split(':').map(Number); const [bh, bm]=b.split(':').map(Number);
+    return (bh*60+bm) - (ah*60+am);
+  }
+  function maxTime(a:string,b:string){ return minutesBetween(a,b) >= 0 ? b : a; }
+  function minTime(a:string,b:string){ return minutesBetween(a,b) <= 0 ? b : a; }
+
+  const toggleChat = async (c: any) => {
+    const open = !chatOpen[c.id];
+    setChatOpen({ ...chatOpen, [c.id]: open });
+    if (open) {
+      const { data } = await backend.chats.list(c.id);
+      setChatMessages(prev => ({ ...prev, [c.id]: data || [] }));
+    }
+  };
+  // Poll chat while open
+  useEffect(() => {
+    const id = setInterval(async () => {
+      const openIds = Object.entries(chatOpen).filter(([,v]) => v).map(([k]) => Number(k));
+      if (openIds.length === 0) return;
+      for (const cid of openIds) {
+        const { data } = await backend.chats.list(cid);
+        setChatMessages(prev => ({ ...prev, [cid]: data || [] }));
+      }
+    }, 5000);
+    return () => clearInterval(id);
+  }, [chatOpen]);
+  const sendChat = async (c: any) => {
+    if (!member) return;
+    const text = (chatInput[c.id] || '').trim();
+    if (!text) return;
+    await backend.chats.add(c.id, member.id, text);
+    const { data } = await backend.chats.list(c.id);
+    setChatMessages(prev => ({ ...prev, [c.id]: data || [] }));
+    setChatInput(prev => ({ ...prev, [c.id]: '' }));
+  };
 
   const submitChallenge = async () => {
     if (!member) { toast.error('Please login'); return; }
@@ -188,10 +267,26 @@ export default function ChallengesPage() {
                 <div>
                   <label className="block text-sm font-medium mb-1">Proposed Date & Time</label>
                   <Input type="datetime-local" value={proposedDate} onChange={(e) => setProposedDate(e.target.value)} />
+                  {suggestions.length > 0 && (
+                    <div className="text-xs mt-2">
+                      <span className="mr-2 text-gray-600">Suggestions:</span>
+                      {suggestions.map((s, idx) => (
+                        <button key={idx} className="underline text-blue-600 mr-2" type="button" onClick={()=>setProposedDate(s)}>{new Date(s).toLocaleString()}</button>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Location</label>
                   <Input placeholder="e.g., Balboa Tennis Club" value={location} onChange={(e)=>setLocation(e.target.value)} />
+                  {courts.length > 0 && (
+                    <div className="text-xs mt-1">
+                      <span className="text-gray-600 mr-2">Common courts:</span>
+                      {courts.slice(0,5).map((c:any, idx:number) => (
+                        <button key={c.id} type="button" className="underline text-blue-600 mr-2" onClick={()=>setLocation(c.name)}>{c.name}</button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
               <div>
@@ -244,14 +339,43 @@ export default function ChallengesPage() {
                           </div>
                         </div>
                         {c.message && <div className="text-sm text-gray-700 mt-2">{c.message}</div>}
+                        <div className="mt-2">
+                          <button className="text-blue-600 underline text-sm" onClick={() => toggleChat(c)}>{chatOpen[c.id] ? 'Hide' : 'Messages'}</button>
+                          {chatOpen[c.id] && (
+                            <div className="mt-2 space-y-2">
+                              <div className="max-h-40 overflow-auto border rounded p-2 bg-white">
+                                {(chatMessages[c.id] || []).map(m => (
+                                  <div key={m.id} className="text-sm"><span className="font-medium">{m.sender_member_id === member?.id ? 'Me' : 'Opponent'}:</span> {m.message}</div>
+                                ))}
+                                {(!chatMessages[c.id] || chatMessages[c.id].length === 0) && <div className="text-xs text-gray-500">No messages</div>}
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <input className="border rounded px-2 py-1 flex-1" placeholder="Type a message" value={chatInput[c.id] || ''} onChange={e=>setChatInput(prev=>({ ...prev, [c.id]: e.target.value }))} />
+                                <Button size="sm" onClick={() => sendChat(c)}>Send</Button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                         {c.proposed_date && c.status === 'Accepted' && (
                           <div className="mt-2">
                             <a className="text-blue-600 underline text-sm" href={icsLink(c)} download={`match-${c.id}.ics`}>Add to Calendar</a>
                           </div>
                         )}
-                        {c.status === 'Pending' && <div className="mt-2">
-                          <Button variant="outline" size="sm" onClick={() => act(c.id, 'Cancelled')}>Cancel</Button>
-                        </div>}
+                        {c.status === 'Pending' && (
+                          <div className="mt-2 space-x-2">
+                            <Button variant="outline" size="sm" onClick={() => act(c.id, 'Cancelled')}>Cancel</Button>
+                            <Button variant="outline" size="sm" onClick={async ()=>{
+                              const next = suggestions[0] || '';
+                              const newDate = prompt('Propose a date/time (YYYY-MM-DDTHH:mm)', next);
+                              if (newDate) {
+                                await backend.challenges.updateSchedule(c.id, newDate, c.location);
+                                const { data: ch } = await backend.challenges.listForMember(member!.id);
+                                setIncoming(ch?.incoming || []); setOutgoing(ch?.outgoing || []);
+                                toast.success('Proposed time updated');
+                              }
+                            }}>Propose New Time</Button>
+                          </div>
+                        )}
                         {c.status === 'Accepted' && (
                           <div className="mt-3 space-y-2">
                             <div className="text-sm font-medium">Report Result</div>

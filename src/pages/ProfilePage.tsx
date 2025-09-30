@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 export default function ProfilePage() {
   const [user, setUser] = useState<any>(null);
   const [member, setMember] = useState<any>(null);
-  const [form, setForm] = useState({ name: '', area: '', tennis_rating: '' });
+  const [form, setForm] = useState<{ name: string; area: string; tennis_rating: string; avatar_url?: string; availability: Array<{ day: number; enabled: boolean; start: string; end: string }> }>({ name: '', area: '', tennis_rating: '', avatar_url: '', availability: [] });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -20,7 +20,7 @@ export default function ProfilePage() {
       if (u) {
         const { data: m } = await backend.members.getByUserId(u.ID);
         setMember(m);
-        if (m) setForm({ name: m.name || '', area: m.area || '', tennis_rating: m.tennis_rating?.toString() || '' });
+        if (m) setForm({ name: m.name || '', area: m.area || '', tennis_rating: m.tennis_rating?.toString() || '', avatar_url: m.avatar_url || '', availability: m.availability || [] });
       }
       setLoading(false);
     };
@@ -34,7 +34,9 @@ export default function ProfilePage() {
         const { error } = await backend.members.update(member.id, {
           name: form.name,
           area: form.area,
-          tennis_rating: form.tennis_rating ? parseFloat(form.tennis_rating) : null
+          tennis_rating: form.tennis_rating ? parseFloat(form.tennis_rating) : null,
+          availability: form.availability,
+          avatar_url: form.avatar_url
         });
         if (error) throw new Error(error);
         toast.success('Profile updated');
@@ -45,7 +47,9 @@ export default function ProfilePage() {
           area: form.area,
           tennis_rating: form.tennis_rating ? parseFloat(form.tennis_rating) : null,
           is_active: true,
-          joined_at: new Date().toISOString()
+          joined_at: new Date().toISOString(),
+          availability: form.availability,
+          avatar_url: form.avatar_url
         });
         if (error) throw new Error(error);
         setMember(data);
@@ -81,9 +85,60 @@ export default function ProfilePage() {
               <label className="block text-sm font-medium mb-1">Tennis Rating</label>
               <Input inputMode="decimal" value={form.tennis_rating} onChange={e=>setForm({ ...form, tennis_rating: e.target.value })} />
             </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Avatar Image URL</label>
+              <Input value={form.avatar_url || ''} onChange={e=>setForm({ ...form, avatar_url: e.target.value })} placeholder="https://..." />
+            </div>
             {member && (
               <div className="text-sm text-gray-600">Wins: {member.wins || 0} • Losses: {member.losses || 0}</div>
             )}
+
+            <div className="pt-4">
+              <div className="font-semibold mb-2">Weekly Availability</div>
+              <div className="text-xs text-gray-600 mb-2">Set your recurring availability (local time). Challenges can suggest overlapping times.</div>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left border-b">
+                    <th className="py-1">Day</th>
+                    <th>Available</th>
+                    <th>Start</th>
+                    <th>End</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Array.from({ length: 7 }).map((_, idx) => {
+                    const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+                    const row = form.availability[idx] || { day: idx, enabled: false, start: '17:00', end: '20:00' };
+                    return (
+                      <tr key={idx} className="border-b">
+                        <td className="py-1">{days[idx]}</td>
+                        <td>
+                          <input type="checkbox" checked={row.enabled} onChange={e=>{
+                            const next = [...form.availability];
+                            next[idx] = { ...row, enabled: e.target.checked };
+                            setForm({ ...form, availability: next });
+                          }} />
+                        </td>
+                        <td>
+                          <input type="time" value={row.start} onChange={e=>{
+                            const next = [...form.availability];
+                            next[idx] = { ...row, start: e.target.value };
+                            setForm({ ...form, availability: next });
+                          }} className="border rounded px-2 py-1" />
+                        </td>
+                        <td>
+                          <input type="time" value={row.end} onChange={e=>{
+                            const next = [...form.availability];
+                            next[idx] = { ...row, end: e.target.value };
+                            setForm({ ...form, availability: next });
+                          }} className="border rounded px-2 py-1" />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
             <div className="text-right">
               <Button onClick={save}>Save</Button>
             </div>
@@ -94,4 +149,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-

@@ -23,6 +23,11 @@ import RequireAuth from "./components/RequireAuth";
 import SeasonsPage from "./pages/SeasonsPage";
 import StandingsPage from "./pages/StandingsPage";
 import AdminChallengesPage from "./pages/AdminChallengesPage";
+import RequireAdmin from "./components/RequireAdmin";
+import CourtsPage from "./pages/CourtsPage";
+import PlayerProfilePage from "./pages/PlayerProfilePage";
+import LeaderboardPage from "./pages/LeaderboardPage";
+import SchedulePage from "./pages/SchedulePage";
 import PlayersPage from "./pages/PlayersPage";
 import ChallengesPage from "./pages/ChallengesPage";
 
@@ -54,10 +59,14 @@ const App = () =>
             <Route path="/members/memberlogin" element={<MemberLoginPage />} />
             <Route path="/product/:id" element={<ProductPage />} />
             <Route path="/players" element={<PlayersPage />} />
+            <Route path="/player/:id" element={<PlayerProfilePage />} />
+            <Route path="/leaderboard" element={<LeaderboardPage />} />
             <Route path="/challenges" element={<RequireAuth><ChallengesPage /></RequireAuth>} />
+            <Route path="/schedule" element={<RequireAuth><SchedulePage /></RequireAuth>} />
             <Route path="/seasons" element={<SeasonsPage />} />
             <Route path="/standings" element={<StandingsPage />} />
-            <Route path="/admin/challenges" element={<RequireAuth><AdminChallengesPage /></RequireAuth>} />
+            <Route path="/courts" element={<CourtsPage />} />
+            <Route path="/admin/challenges" element={<RequireAdmin><AdminChallengesPage /></RequireAdmin>} />
             <Route path="/onauthsuccess" element={<OnAuthSuccessPage />} />
             <Route path="/resetpassword" element={<ResetPasswordPage />} />
             <Route path="/order-history" element={<RequireAuth><OrderHistoryPage /></RequireAuth>} />
