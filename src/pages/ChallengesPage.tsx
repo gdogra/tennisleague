@@ -20,6 +20,7 @@ export default function ChallengesPage() {
   const [loading, setLoading] = useState(true);
   const [searchParams] = useSearchParams();
   const [reportForms, setReportForms] = useState<Record<number, { sets: { a: string; b: string }[]; winner: 'me' | 'opponent' | '' }>>({});
+  const [contestNotes, setContestNotes] = useState<Record<number, string>>({});
 
   // Form state
   const [opponentId, setOpponentId] = useState<number | ''>('' as any);
@@ -105,6 +106,41 @@ export default function ChallengesPage() {
     const { data: ch } = await backend.challenges.listForMember(member.id);
     setIncoming(ch?.incoming || []);
     setOutgoing(ch?.outgoing || []);
+  };
+
+  const verifyResult = async (c: any, approve: boolean) => {
+    const note = approve ? undefined : (contestNotes[c.id] || '');
+    const { error } = await backend.challenges.verifyResult(c.id, approve, note);
+    if (error) { toast.error('Verification failed'); return; }
+    const { data: ch } = await backend.challenges.listForMember(member!.id);
+    setIncoming(ch?.incoming || []);
+    setOutgoing(ch?.outgoing || []);
+    toast.success(approve ? 'Result verified' : 'Result contested');
+  };
+
+  const icsLink = (c: any) => {
+    if (!c.proposed_date) return '';
+    const dt = new Date(c.proposed_date);
+    const dtStart = dt.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    const dtEnd = new Date(dt.getTime() + 90 * 60 * 1000).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    const opponent = members.find(m=>m.id === (c.challenger_member_id === member?.id ? c.opponent_member_id : c.challenger_member_id));
+    const title = `Tennis Match vs ${opponent?.name || 'Opponent'}`;
+    const loc = c.location || 'TBD';
+    const ics = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//TLSD//Matches//EN',
+      'BEGIN:VEVENT',
+      `UID:${c.id}@tlnet`,
+      `DTSTAMP:${dtStart}`,
+      `DTSTART:${dtStart}`,
+      `DTEND:${dtEnd}`,
+      `SUMMARY:${title}`,
+      `LOCATION:${loc.replace(/,/g,'\\,')}`,
+      'END:VEVENT',
+      'END:VCALENDAR'
+    ].join('\r\n');
+    return `data:text/calendar;charset=utf-8,${encodeURIComponent(ics)}`;
   };
 
   if (loading) {
@@ -202,9 +238,17 @@ export default function ChallengesPage() {
                             <div className="font-medium">To: {(members.find(m=>m.id===c.opponent_member_id)?.name) || `Member #${c.opponent_member_id}`}</div>
                             <div className="text-xs text-gray-600">{c.proposed_date ? new Date(c.proposed_date).toLocaleString() : 'No date specified'} • {c.location || 'TBD'}</div>
                           </div>
-                          <Badge>{c.status}</Badge>
+                          <div className="flex items-center space-x-2">
+                            <Badge>{c.status}</Badge>
+                            {c.verification_status && <Badge variant="secondary">{c.verification_status}</Badge>}
+                          </div>
                         </div>
                         {c.message && <div className="text-sm text-gray-700 mt-2">{c.message}</div>}
+                        {c.proposed_date && c.status === 'Accepted' && (
+                          <div className="mt-2">
+                            <a className="text-blue-600 underline text-sm" href={icsLink(c)} download={`match-${c.id}.ics`}>Add to Calendar</a>
+                          </div>
+                        )}
                         {c.status === 'Pending' && <div className="mt-2">
                           <Button variant="outline" size="sm" onClick={() => act(c.id, 'Cancelled')}>Cancel</Button>
                         </div>}
@@ -242,7 +286,10 @@ export default function ChallengesPage() {
                             <div className="font-medium">From: {(members.find(m=>m.id===c.challenger_member_id)?.name) || `Member #${c.challenger_member_id}`}</div>
                             <div className="text-xs text-gray-600">{c.proposed_date ? new Date(c.proposed_date).toLocaleString() : 'No date specified'} • {c.location || 'TBD'}</div>
                           </div>
-                          <Badge>{c.status}</Badge>
+                          <div className="flex items-center space-x-2">
+                            <Badge>{c.status}</Badge>
+                            {c.verification_status && <Badge variant="secondary">{c.verification_status}</Badge>}
+                          </div>
                         </div>
                         {c.message && <div className="text-sm text-gray-700 mt-2">{c.message}</div>}
                         <div className="mt-2 space-x-2">
@@ -252,8 +299,11 @@ export default function ChallengesPage() {
                               <Button size="sm" variant="outline" onClick={() => act(c.id, 'Declined')}>Decline</Button>
                             </>
                           )}
-                          {c.status === 'Accepted' && (
+                          {c.proposed_date && c.status === 'Accepted' && (
                             <div className="space-y-2">
+                              <div>
+                                <a className="text-blue-600 underline text-sm" href={icsLink(c)} download={`match-${c.id}.ics`}>Add to Calendar</a>
+                              </div>
                               <div className="text-sm font-medium">Report Result</div>
                               {Array.from({ length: 3 }).map((_, i) => (
                                 <div key={i} className="flex items-center space-x-2">
@@ -267,6 +317,21 @@ export default function ChallengesPage() {
                                 <label><input type="radio" name={`win-${c.id}`} onChange={()=>setReportForms(prev=>({ ...prev, [c.id]: { ...(prev[c.id]||{sets:[{a:'',b:''},{a:'',b:''},{a:'',b:''}]}), winner:'opponent' } }))} /> Opponent</label>
                               </div>
                               <Button size="sm" onClick={() => submitResult(c, 'incoming')}>Submit Result</Button>
+                            </div>
+                          )}
+                          {c.status === 'ResultPending' && (
+                            <div className="mt-2 text-sm">
+                              {member && member.id !== c.result_reported_by ? (
+                                <div className="space-y-2">
+                                  <div className="flex items-center space-x-2">
+                                    <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => verifyResult(c, true)}>Approve Result</Button>
+                                    <Button size="sm" variant="outline" onClick={() => verifyResult(c, false)}>Contest</Button>
+                                  </div>
+                                  <input className="border rounded px-2 py-1 w-full" placeholder="Reason for contest (optional)" value={contestNotes[c.id] || ''} onChange={e=>setContestNotes(prev=>({ ...prev, [c.id]: e.target.value }))} />
+                                </div>
+                              ) : (
+                                <span>Awaiting opponent verification…</span>
+                              )}
                             </div>
                           )}
                         </div>

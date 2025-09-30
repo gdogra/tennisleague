@@ -22,6 +22,7 @@ import OutboxPage from "./pages/OutboxPage";
 import RequireAuth from "./components/RequireAuth";
 import SeasonsPage from "./pages/SeasonsPage";
 import StandingsPage from "./pages/StandingsPage";
+import AdminChallengesPage from "./pages/AdminChallengesPage";
 import PlayersPage from "./pages/PlayersPage";
 import ChallengesPage from "./pages/ChallengesPage";
 
@@ -56,6 +57,7 @@ const App = () =>
             <Route path="/challenges" element={<RequireAuth><ChallengesPage /></RequireAuth>} />
             <Route path="/seasons" element={<SeasonsPage />} />
             <Route path="/standings" element={<StandingsPage />} />
+            <Route path="/admin/challenges" element={<RequireAuth><AdminChallengesPage /></RequireAuth>} />
             <Route path="/onauthsuccess" element={<OnAuthSuccessPage />} />
             <Route path="/resetpassword" element={<ResetPasswordPage />} />
             <Route path="/order-history" element={<RequireAuth><OrderHistoryPage /></RequireAuth>} />

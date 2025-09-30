@@ -277,7 +277,7 @@ export const backend = {
       storage.set(KEYS.challenges, all);
       return Promise.resolve({ data: updated, error: null });
     },
-    verifyResult(id: number, approve: boolean): Result<any> {
+    verifyResult(id: number, approve: boolean, note?: string): Result<any> {
       const all = storage.get<any[]>(KEYS.challenges, []);
       const idx = all.findIndex(c => c.id === id);
       if (idx === -1) return Promise.resolve({ data: null, error: 'Not found' });
@@ -293,10 +293,33 @@ export const backend = {
         if (loseIdx !== -1) members[loseIdx] = { ...members[loseIdx], losses: (members[loseIdx].losses || 0) + 1 };
         storage.set(KEYS.members, members);
       } else {
-        updated = { ...updated, verification_status: 'Contested', updated_at: new Date().toISOString() };
+        updated = { ...updated, verification_status: 'Contested', contest_note: note || '', updated_at: new Date().toISOString() };
       }
       all[idx] = updated;
       storage.set(KEYS.challenges, all);
+      return Promise.resolve({ data: updated, error: null });
+    },
+    listAdmin(): Result<{ pending: any[]; contested: any[] }> {
+      const all = storage.get<any[]>(KEYS.challenges, []);
+      const pending = all.filter(c => c.status === 'ResultPending' || c.verification_status === 'Pending');
+      const contested = all.filter(c => c.verification_status === 'Contested');
+      return Promise.resolve({ data: { pending, contested }, error: null });
+    },
+    adminOverride(id: number, winner_member_id: number): Result<any> {
+      const all = storage.get<any[]>(KEYS.challenges, []);
+      const idx = all.findIndex(c => c.id === id);
+      if (idx === -1) return Promise.resolve({ data: null, error: 'Not found' });
+      let updated = { ...all[idx], winner_member_id, status: 'Completed', verification_status: 'Verified', updated_at: new Date().toISOString() };
+      all[idx] = updated;
+      storage.set(KEYS.challenges, all);
+      // Update stats
+      const members = storage.get<any[]>(KEYS.members, []);
+      const winIdx = members.findIndex(m => m.id === winner_member_id);
+      if (winIdx !== -1) members[winIdx] = { ...members[winIdx], wins: (members[winIdx].wins || 0) + 1 };
+      const loserId = updated.challenger_member_id === winner_member_id ? updated.opponent_member_id : updated.challenger_member_id;
+      const loseIdx = members.findIndex(m => m.id === loserId);
+      if (loseIdx !== -1) members[loseIdx] = { ...members[loseIdx], losses: (members[loseIdx].losses || 0) + 1 };
+      storage.set(KEYS.members, members);
       return Promise.resolve({ data: updated, error: null });
     }
   },

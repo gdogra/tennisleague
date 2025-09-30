@@ -153,6 +153,9 @@ const Header = () => {
                     <a href="/outbox" className="hover:text-green-400 transition-colors">
                       Notifications
                     </a>
+                    <a href="/admin/challenges" className="hover:text-green-400 transition-colors">
+                      Admin
+                    </a>
                     <button
                   onClick={handleLogout}
                   className="hover:text-green-400 transition-colors flex items-center">
