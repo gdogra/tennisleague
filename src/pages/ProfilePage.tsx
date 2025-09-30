@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import backend from '@/lib/backendClient';
 import { isOptedIn, requestOptIn, revokeOptIn } from '@/lib/notify';
+import { ProfileSchema } from '@/lib/schemas';
 import { toast } from 'sonner';
 
 export default function ProfilePage() {
@@ -33,13 +34,12 @@ export default function ProfilePage() {
   const save = async () => {
     if (!user) { toast.error('Login required'); return; }
     try {
+      const parsed = ProfileSchema.safeParse({ name: form.name, area: form.area, tennis_rating: form.tennis_rating ? parseFloat(form.tennis_rating) : undefined, avatar_url: form.avatar_url || undefined });
+      if (!parsed.success) { toast.error('Invalid profile'); return; }
       if (member) {
         const { error } = await backend.members.update(member.id, {
-          name: form.name,
-          area: form.area,
-          tennis_rating: form.tennis_rating ? parseFloat(form.tennis_rating) : null,
-          availability: form.availability,
-          avatar_url: form.avatar_url
+          ...parsed.data,
+          availability: form.availability
         });
         if (error) throw new Error(error);
         toast.success('Profile updated');

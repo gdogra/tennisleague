@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import backend from '@/lib/backendClient';
+import { ResultReportSchema, SlotsSchema } from '@/lib/schemas';
 import { events } from '@/lib/events';
 import { toast } from 'sonner';
 
@@ -225,7 +226,10 @@ export default function ChallengesPage() {
       .filter(s => s.a !== '' && s.b !== '')
       .map(s => ({ a: parseInt(s.a||'0'), b: parseInt(s.b||'0') }))
       .slice(0, 3);
-    if (sets.length === 0) { toast.error('Enter at least one set'); return; }
+    if (ResultReportSchema.safeParse({ winner_member_id: who==='incoming'? (form.winner==='me'? member.id : c.challenger_member_id) : (form.winner==='me'? member.id : c.opponent_member_id), sets }).success === false) {
+      if (sets.length === 0) toast.error('Enter at least one valid set'); else toast.error('Invalid set scores');
+      return;
+    }
     const winnerId = form.winner === 'me' ? member.id : (form.winner === 'opponent' ? (who === 'incoming' ? c.challenger_member_id : c.opponent_member_id) : null);
     if (!winnerId) { toast.error('Select winner'); return; }
     const { error } = await backend.challenges.reportResult(c.id, { winner_member_id: winnerId, sets });

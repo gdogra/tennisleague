@@ -12,6 +12,9 @@ export default function AdminSeasonsPage() {
   const [enrollments, setEnrollments] = useState<any[]>([]);
   const [division, setDivision] = useState('');
   const [memberId, setMemberId] = useState('');
+  const [bulk, setBulk] = useState('');
+  const [emailBody, setEmailBody] = useState('');
+  const [emailSubject, setEmailSubject] = useState('Division Update');
 
   useEffect(() => {
     const load = async () => {
@@ -82,19 +85,52 @@ export default function AdminSeasonsPage() {
                   </select>
                   <Button onClick={enroll}>Enroll</Button>
                 </div>
-                <div className="mt-4">
-                  <div className="font-medium mb-2">Enrolled Members</div>
-                  <div className="space-y-2">
+              <div className="mt-4">
+                <div className="font-medium mb-2">Enrolled Members</div>
+                <div className="space-y-2">
                     {enrollments.map((e:any) => (
                       <div key={e.member_id} className="border rounded p-2 flex items-center justify-between">
                         <div>{members.find(m=>m.id===e.member_id)?.name || `Member #${e.member_id}`} • Division: {e.division}</div>
                         <Button variant="outline" size="sm" onClick={()=>remove(e.member_id)}>Remove</Button>
                       </div>
                     ))}
-                  </div>
                 </div>
               </div>
-            )}
+              <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <div className="font-medium mb-2">Bulk Enroll (CSV: member_id,division)</div>
+                  <textarea className="w-full border rounded p-2 h-32" value={bulk} onChange={e=>setBulk(e.target.value)} placeholder="201,4.0\n202,3.5" />
+                  <Button className="mt-2" variant="outline" onClick={async ()=>{
+                    if (!selected) return;
+                    const lines = bulk.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+                    for (const line of lines) {
+                      const [mid, div] = line.split(',').map(s=>s.trim());
+                      await fetch(`${(import.meta as any).env?.VITE_API_BASE}/seasons/${selected}/enroll`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ member_id: Number(mid), division: div || 'Open' }) });
+                    }
+                    setBulk('');
+                    const res = await fetch(`${(import.meta as any).env?.VITE_API_BASE}/seasons/${selected}/enrollments`);
+                    setEnrollments(res.ok ? await res.json() : []);
+                  }}>Import</Button>
+                </div>
+                <div>
+                  <div className="font-medium mb-2">Email Division</div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-2">
+                    <select className="border rounded px-2 py-1" value={division} onChange={e=>setDivision(e.target.value)}>
+                      <option value="">All</option>
+                      {(seasons.find(s=>s.id===selected)?.divisions || []).map((d:string)=> <option key={d} value={d}>{d}</option>)}
+                    </select>
+                    <input className="border rounded px-2 py-1 md:col-span-2" placeholder="Subject" value={emailSubject} onChange={e=>setEmailSubject(e.target.value)} />
+                  </div>
+                  <textarea className="w-full border rounded p-2 h-32" value={emailBody} onChange={e=>setEmailBody(e.target.value)} placeholder="<p>Hello division players, ...</p>" />
+                  <Button className="mt-2" onClick={async ()=>{
+                    if (!selected) return;
+                    await fetch(`${(import.meta as any).env?.VITE_API_BASE}/seasons/${selected}/email`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ division, subject: emailSubject, html: emailBody }) });
+                    alert('Emails sent (if configured).');
+                  }}>Send Email</Button>
+                </div>
+              </div>
+            </div>
+          )}
           </CardContent>
         </Card>
       </main>
@@ -102,4 +138,3 @@ export default function AdminSeasonsPage() {
     </div>
   );
 }
-

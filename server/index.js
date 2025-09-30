@@ -25,20 +25,24 @@ app.post('/auth/login', (req, res) => {
   const { email } = req.body || {};
   if (!email) return res.status(400).json({ error: 'email required' });
   const store = db();
+  const token = Math.random().toString(36).slice(2) + Date.now();
   const user = { id: 100, email, name: email.split('@')[0], roles: email.endsWith('@tennisleague.com') ? 'Admin' : 'Member' };
-  store.data.sessions['token'] = user; // naive
+  store.data.sessions[token] = user;
   store.save();
-  res.json({ token: 'token', user });
+  res.setHeader('Set-Cookie', `sid=${token}; Path=/; HttpOnly; SameSite=Lax`);
+  res.json({ token, user });
 });
 app.post('/auth/logout', (req, res) => {
   const store = db();
-  delete store.data.sessions['token'];
+  const token = (req.headers.cookie || '').split('; ').find(s=>s.startsWith('sid='))?.split('=')[1];
+  if (token) delete store.data.sessions[token];
   store.save();
   res.json({ ok: true });
 });
 app.get('/auth/user', (req, res) => {
   const store = db();
-  res.json({ user: store.data.sessions['token'] || null });
+  const token = (req.headers.cookie || '').split('; ').find(s=>s.startsWith('sid='))?.split('=')[1];
+  res.json({ user: (token && store.data.sessions[token]) || null });
 });
 
 // Members
@@ -217,6 +221,19 @@ app.post('/chats/:challengeId', (req, res) => {
 // Seasons/Courts
 app.get('/seasons', (req, res) => { const store = db(); res.json(store.data.seasons); });
 app.get('/courts', (req, res) => { const store = db(); res.json(store.data.courts); });
+app.post('/seasons/:id/email', async (req, res) => {
+  const store = db();
+  const seasonId = String(req.params.id);
+  const div = req.body.division || '';
+  const subject = req.body.subject || 'League Notice';
+  const html = req.body.html || '<p>Hello players,</p>';
+  const enrol = (store.data.seasonMembers[seasonId] || []).filter(e => (div ? e.division === div : true));
+  const targets = enrol.map(e => store.data.members.find(m => m.id === e.member_id)).filter(Boolean);
+  for (const m of targets) {
+    if (m.email) await sendEmail({ to: m.email, subject, html });
+  }
+  res.json({ sent: targets.length });
+});
 
 // Season enrollment and locking
 app.get('/seasons/:id/enrollments', (req, res) => {
