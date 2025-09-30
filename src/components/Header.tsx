@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Menu, User, ShoppingCart, LogOut, Package } from 'lucide-react';
@@ -11,6 +11,8 @@ const Header = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [cartItemCount, setCartItemCount] = useState(0);
   const [memberInfo, setMemberInfo] = useState<any>(null);
+  const [challengeCount, setChallengeCount] = useState(0);
+  const prevChallengeCount = useRef(0);
   const { toast } = useToast();
 
   const mainNavItems = [
@@ -71,6 +73,33 @@ const Header = () => {
       console.error('Error loading cart count:', error);
     }
   };
+
+  const loadChallengeCount = async (memberId: number) => {
+    try {
+      const { data, error } = await backend.challenges.listForMember(memberId);
+      if (!error && data) {
+        const pending = (data.incoming || []).filter((c: any) => c.status === 'Pending').length;
+        if (pending > prevChallengeCount.current) {
+          toast({
+            title: 'New Challenge',
+            description: `You have ${pending} pending challenge${pending === 1 ? '' : 's'}.`
+          });
+        }
+        prevChallengeCount.current = pending;
+        setChallengeCount(pending);
+      }
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    if (memberInfo?.id) {
+      loadChallengeCount(memberInfo.id);
+      const id = setInterval(() => loadChallengeCount(memberInfo.id), 30000);
+      return () => clearInterval(id);
+    }
+  }, [memberInfo]);
 
   const handleLogout = async () => {
     try {
@@ -160,15 +189,22 @@ const Header = () => {
 
           {/* Desktop Navigation */}
           <nav className="hidden lg:flex space-x-6">
-            {mainNavItems.map((item) =>
-            <a
-              key={item.label}
-              href={item.href}
-              className="text-white hover:text-green-400 transition-colors py-2 px-3 rounded">
-
-                {item.label}
-              </a>
-            )}
+            {mainNavItems.map((item) => {
+              const isChallenges = item.label === 'Challenges';
+              return (
+                <a
+                  key={item.label}
+                  href={item.href}
+                  className="text-white hover:text-green-400 transition-colors py-2 px-3 rounded flex items-center">
+                  <span>{item.label}</span>
+                  {isChallenges && challengeCount > 0 && (
+                    <span className="ml-2 bg-red-500 text-white text-xs rounded-full h-5 px-2 flex items-center justify-center">
+                      {challengeCount > 99 ? '99+' : challengeCount}
+                    </span>
+                  )}
+                </a>
+              );
+            })}
           </nav>
 
           {/* Mobile Menu Button */}
@@ -207,16 +243,23 @@ const Header = () => {
                   }
                   
                   {/* Main navigation items */}
-                  {mainNavItems.map((item) =>
-                  <a
-                    key={item.label}
-                    href={item.href}
-                    className="text-lg font-medium hover:text-green-600 transition-colors py-2"
-                    onClick={() => setIsOpen(false)}>
-
-                      {item.label}
-                    </a>
-                  )}
+                  {mainNavItems.map((item) => {
+                    const isChallenges = item.label === 'Challenges';
+                    return (
+                      <a
+                        key={item.label}
+                        href={item.href}
+                        className="text-lg font-medium hover:text-green-600 transition-colors py-2 flex items-center"
+                        onClick={() => setIsOpen(false)}>
+                        <span>{item.label}</span>
+                        {isChallenges && challengeCount > 0 && (
+                          <span className="ml-2 bg-red-500 text-white text-xs rounded-full h-5 px-2 flex items-center justify-center">
+                            {challengeCount > 99 ? '99+' : challengeCount}
+                          </span>
+                        )}
+                      </a>
+                    );
+                  })}
                 </div>
               </SheetContent>
             </Sheet>
